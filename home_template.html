@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ titolo }}</title>
+    <meta name="keywords" content="{{ keywords }}">
+    <!-- Nuovi Font da Google Fonts: Poppins (Titoli, 800 per più impatto) e Inter (Corpo, 400-600 per leggibilità) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome per le icone social -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #007bff; /* Blu brillante per il brand, leggermente più vivace */
+            --secondary-color: #2c3e50; /* Blu scuro/antracite per il testo principale */
+            --accent-color: #28a745; /* Verde per elementi interattivi e highlights */
+            --background-light: #f5f8fa; /* Sfondo generale molto chiaro e pulito */
+            --text-dark: #34495e; /* Grigio-blu scuro per il testo del corpo */
+            --card-background: #ffffff; /* Sfondo delle card/container */
+            --border-color: #e9ecef; /* Colore del bordo molto sottile */
+            
+            /* Nuove variabili per ombre più raffinate */
+            --shadow-subtle: rgba(0, 0, 0, 0.03); /* Ombra appena percettibile */
+            --shadow-soft: rgba(0, 0, 0, 0.06); /* Ombra leggera per elementi */
+            --shadow-medium: rgba(0, 0, 0, 0.12); /* Ombra standard per elevazione */
+            --shadow-strong: rgba(0, 0, 0, 0.20); /* Ombra più scura per hover/prominenza */
+            
+            --footer-bg: #212529; /* Sfondo footer scuro */
+            --footer-text: #ced4da; /* Testo footer grigio chiaro */
+            --transition-speed: 0.3s; /* Velocità standard per le transizioni, leggermente più veloce */
+            --border-radius-main: 15px; /* Raggio del bordo per container principali, ridotto */
+            --border-radius-card: 10px; /* Raggio del bordo per card interne, ridotto */
+
+            /* Colori brand specifici per i social media */
+            --facebook-color: #3b5998;
+            --instagram-color: #E4405F; 
+            --google-color: #DB4437; 
+        }
+
+        body {
+            font-family: 'Inter', sans-serif; /* Corpo del testo, leggero e leggibile */
+            background-color: var(--background-light);
+            color: var(--text-dark);
+            margin: 0;
+            padding: 0;
+            line-height: 1.55; /* Interlinea ulteriormente ridotta per compattezza */
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased; /* Migliora il rendering del font */
+            -moz-osx-font-smoothing: grayscale; /* Migliora il rendering del font */
+        }
+
+        .container {
+            max-width: 900px; /* Larghezza ulteriormente ridotta per un look più compatto */
+            margin: 35px auto; /* Margine ridotto */
+            padding: 35px 45px; /* Padding ridotto */
+            background-color: var(--card-background);
+            border-radius: var(--border-radius-main);
+            box-shadow: 0 12px 25px var(--shadow-medium); /* Ombra leggermente ridotta */
+            flex-grow: 1;
+            text-align: center;
+            transition: box-shadow var(--transition-speed) ease-out, transform var(--transition-speed) ease-out;
+        }
+        .container:hover {
+            box-shadow: 0 18px 35px var(--shadow-strong); /* Ombra meno intensa all'hover */
+            transform: translateY(-2px); /* Leggero sollevamento all'hover */
+        }
+
+        h1 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 12px;
+            font-size: 3em; /* Dimensione ridotta */
+            letter-spacing: -0.03em;
+            text-shadow: 1px 1px 2px var(--shadow-subtle);
+        }
+
+        h2 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            color: var(--secondary-color);
+            margin-bottom: 40px; /* Margine ridotto */
+            font-size: 1.8em; /* Dimensione ridotta */
+            line-height: 1.3;
+            text-shadow: 0.5px 0.5px 1.5px var(--shadow-subtle);
+        }
+
+        .main-image {
+            width: 100%;
+            max-height: 350px; /* Altezza ulteriormente ridotta */
+            object-fit: cover;
+            display: block; 
+            margin: 0 auto 40px auto; /* Margine ridotto */
+            border-radius: var(--border-radius-card);
+            box-shadow: 0 6px 15px var(--shadow-medium); /* Ombra ridotta */
+            transition: transform var(--transition-speed) ease-out, box-shadow var(--transition-speed) ease-out;
+        }
+        .main-image:hover {
+            transform: scale(1.001); /* Zoom ancora più sottile */
+            box-shadow: 0 8px 20px var(--shadow-strong); /* Ombra ridotta all'hover */
+        }
+
+        .home-content {
+            font-size: 0.95em; /* Testo ulteriormente ridotto */
+            color: var(--text-dark);
+            margin-bottom: 40px; /* Spazio ridotto */
+            text-align: center; /* MODIFICATO: Testo centrato */
+            max-width: 100%; /* Permette di usare tutta la larghezza disponibile nel container ridotto */
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.5; /* Interlinea ulteriormente ridotta */
+        }
+        .home-content p {
+            margin-bottom: 0.8em; /* Spazio tra paragrafi ridotto */
+        }
+
+        .article-list {
+            margin-top: 50px; /* Spazio ridotto prima della lista articoli */
+            text-align: left;
+        }
+
+        .article-list h3 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            color: var(--secondary-color);
+            font-size: 2.5em; /* Dimensione ridotta */
+            margin-bottom: 40px; /* Spazio ridotto sotto il titolo */
+            text-align: center;
+            text-shadow: 0.5px 0.5px 1.5px var(--shadow-subtle);
+        }
+
+        .article-group {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: stretch;
+            margin-bottom: 45px; /* Spazio ridotto tra i gruppi di articoli */
+            border-radius: var(--border-radius-main);
+            overflow: hidden;
+            box-shadow: 0 10px 25px var(--shadow-medium); /* Ombra ridotta */
+            transition: transform var(--transition-speed) ease-in-out, box-shadow var(--transition-speed) ease-in-out;
+        }
+        /* Effetto hover per i gruppi di articoli: sollevamento e ombra più scura */
+        .article-group:hover {
+            transform: translateY(-4px); /* Sollevamento ridotto */
+            box-shadow: 0 15px 35px var(--shadow-strong); /* Ombra ridotta all'hover */
+        }
+
+        /* Nuovo contenitore per il testo degli articoli all'interno del gruppo */
+        .article-text-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 30px; /* Padding ridotto */
+            background-color: var(--card-background);
+            position: relative;
+        }
+
+        /* Stili per le singole article-card all'interno di article-text-container */
+        .article-text-container .article-card {
+            padding: 0;
+            border: none;
+            flex: 0 0 auto;
+            width: 100%;
+            margin-bottom: 15px; /* Spazio tra le card impilate ridotto */
+        }
+        /* Rimuovi margine dopo l'ultima card impilata */
+        .article-text-container .article-card:last-of-type {
+            margin-bottom: 0;
+        }
+        
+        /* Linea di separazione verticale tra contenitore testo e immagine */
+        .article-group .article-text-container {
+            border-right: 1px solid var(--border-color); 
+        }
+        /* Per i gruppi pari, inverti la direzione e la linea di separazione */
+        .article-group:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+        .article-group:nth-child(even) .article-text-container {
+            border-right: none;
+            border-left: 1px solid var(--border-color);
+        }
+
+        .article-image-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f0f0;
+            min-height: 220px; /* Altezza minima ulteriormente ridotta */
+            overflow: hidden;
+            border-radius: 0 var(--border-radius-card) var(--border-radius-card) 0;
+        }
+        .article-group:nth-child(even) .article-image-container {
+            border-radius: var(--border-radius-card) 0 0 var(--border-radius-card);
+        }
+
+
+        .article-image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            border-radius: 0;
+            transition: transform var(--transition-speed) ease-out;
+        }
+        .article-image-container:hover img {
+            transform: scale(1.02); /* Zoom leggero ridotto */
+        }
+
+        .article-card h4 {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 1.4em; /* Dimensione ulteriormente ridotta */
+            color: var(--secondary-color);
+            margin-top: 0;
+            margin-bottom: 10px; /* Margine ridotto */
+            line-height: 1.2;
+        }
+
+        .article-card p {
+            font-size: 0.85em; /* Testo ulteriormente ridotto */
+            color: var(--text-dark);
+            margin-bottom: 15px; /* Margine ridotto */
+            line-height: 1.45;
+        }
+
+        .article-card a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 700;
+            transition: color var(--transition-speed) ease-in-out;
+            display: inline-block;
+        }
+
+        .article-card a:hover {
+            color: var(--accent-color);
+            text-decoration: underline;
+        }
+        
+        /* Bottone "Leggi di più" più stilizzato */
+        .article-card a.read-more-btn {
+            background-color: var(--primary-color);
+            color: var(--card-background);
+            padding: 8px 18px; /* Padding ridotto */
+            border-radius: 5px;
+            text-transform: uppercase;
+            font-size: 0.75em; /* Dimensione ridotta */
+            letter-spacing: 0.03em;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); /* Ombra ridotta */
+            transition: background-color var(--transition-speed) ease-in-out, transform var(--transition-speed) ease-in-out, box-shadow var(--transition-speed) ease-in-out;
+        }
+        .article-card a.read-more-btn:hover {
+            background-color: var(--accent-color);
+            transform: translateY(-1px); /* Sollevamento ridotto */
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15); /* Ombra ridotta */
+            text-decoration: none;
+        }
+
+        /* Footer Styles */
+        .site-footer {
+            background-color: var(--footer-bg);
+            color: var(--footer-text);
+            padding: 35px 20px; /* Padding ridotto */
+            text-align: center;
+            font-size: 0.85em; /* Dimensione ridotta */
+            margin-top: 60px; /* Spazio ridotto dal contenuto */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .site-footer p {
+            margin: 5px 0; /* Spazio tra paragrafi del footer ridotto */
+        }
+        .site-footer a {
+            color: var(--footer-text);
+            text-decoration: none;
+            transition: color var(--transition-speed) ease;
+        }
+        .site-footer a:hover {
+            color: var(--primary-color);
+            text-decoration: underline;
+        }
+
+        /* Stili per i link social all'interno del footer */
+        .footer-social-links { 
+            margin-top: 20px; /* Spazio ridotto */
+            margin-bottom: 20px; 
+        }
+        .footer-social-links a {
+            display: inline-block;
+            margin: 0 15px; /* Spazio ridotto tra le icone */
+            font-size: 1.1em; /* Icone ridotte */
+            color: inherit; 
+            text-decoration: none;
+            transition: transform var(--transition-speed) ease, opacity var(--transition-speed) ease;
+            opacity: 0.8; 
+        }
+        /* Colori originali dei social media per le icone */
+        .footer-social-links a.facebook-icon .fab.fa-facebook-f { color: var(--facebook-color); }
+        .footer-social-links a.instagram-icon .fab.fa-instagram { color: var(--instagram-color); }
+        .footer-social-links a.google-icon .fab.fa-google { color: var(--google-color); }
+
+        .footer-social-links a:hover {
+            transform: translateY(-3px); 
+            opacity: 1; 
+        }
+        .footer-social-links .fab, .footer-social-links .fas { 
+            font-size: 2.2em; 
+            vertical-align: middle;
+            margin: 0;
+        }
+
+        /* Responsiveness */
+        @media (max-width: 1200px) { /* Desktop più piccoli / Laptop */
+            .container { max-width: 800px; padding: 25px 35px; }
+            h1 { font-size: 2.4em; }
+            h2 { font-size: 1.4em; }
+            .main-image { max-height: 300px; margin-bottom: 35px; }
+            .home-content { font-size: 0.9em; }
+            .article-list h3 { font-size: 2em; margin-bottom: 35px; }
+            .article-card h4 { font-size: 1.3em; }
+            .article-card p { font-size: 0.8em; }
+            .article-image-container { min-height: 200px; }
+            .article-card a.read-more-btn { padding: 6px 15px; font-size: 0.7em; }
+            .footer-social-links a { margin: 0 10px; font-size: 1em; }
+            .footer-social-links .fab, .footer-social-links .fas { font-size: 2em; }
+            .site-footer { padding: 40px 20px; margin-top: 60px; }
+        }
+
+        @media (max-width: 992px) { /* Tablet */
+            .container {
+                margin: 20px auto;
+                padding: 20px 25px;
+            }
+            h1 { font-size: 2em; }
+            h2 { font-size: 1.2em; margin-bottom: 25px; }
+            .main-image { max-height: 250px; margin-bottom: 30px; }
+            .home-content { font-size: 0.85em; max-width: 100%; }
+            .article-list h3 { font-size: 1.6em; margin-bottom: 25px;}
+            .article-group {
+                margin-bottom: 30px;
+            }
+            .article-text-container {
+                padding: 25px;
+            }
+            .article-text-container .article-card {
+                margin-bottom: 10px;
+            }
+            .article-image-container {
+                min-height: 180px;
+            }
+            .article-card h4 { font-size: 1.1em; margin-bottom: 6px; }
+            .article-card p { font-size: 0.75em; margin-bottom: 15px; }
+            .article-card a.read-more-btn { padding: 5px 12px; font-size: 0.65em; }
+            .site-footer { padding: 30px 10px; margin-top: 40px; }
+            .footer-social-links a { margin: 0 8px; font-size: 0.9em; }
+            .footer-social-links .fab, .footer-social-links .fas { font-size: 1.6em; }
+        }
+
+        @media (max-width: 768px) { /* Small tablet / Large mobile */
+            .container { padding: 15px 10px; margin: 10px auto; }
+            h1 { font-size: 1.6em; margin-bottom: 8px; }
+            h2 { font-size: 1em; margin-bottom: 20px; }
+            .main-image { max-height: 180px; margin-bottom: 20px; }
+            .home-content { font-size: 0.75em; line-height: 1.4; }
+            .article-list h3 { font-size: 1.4em; margin-bottom: 20px; }
+            .article-group { margin-bottom: 20px; }
+            .article-card { padding: 18px; }
+            .article-card h4 { font-size: 1em; }
+            .article-card p { font-size: 0.7em; }
+            .article-text-container { padding: 20px; }
+            .article-image-container { min-height: 140px; }
+            .site-footer { padding: 25px 8px; margin-top: 30px; }
+        }
+
+        @media (max-width: 576px) { /* Mobile */
+            h1 { font-size: 1.3em; }
+            h2 { font-size: 0.85em; }
+            .article-list h3 { font-size: 1.2em; }
+            .article-card h4 { font-size: 0.9em; }
+            .article-card p { font-size: 0.65em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ titolo }}</h1>
+        <h2>{{ sottotitolo }}</h2>
+        <img src="{{ img_url_home }}" alt="Immagine principale dell'azienda" class="main-image">
+        <div class="home-content">
+            {{ home_content | safe }}
+        </div>
+
+        <div class="article-list">
+            <h3>I nostri articoli:</h3>
+            {% for i in range(0, articoli|length, 2) %}
+                {% set art1 = articoli[i] %}
+                {% set art2 = articoli[i+1] if i+1 < articoli|length else none %}
+                
+                <div class="article-group">
+                    <div class="article-text-container"> {# NUOVO: Contenitore per le card degli articoli #}
+                        <div class="article-card">
+                            <h4><a href="{{ art1.url }}">{{ art1.titolo }}</a></h4>
+                            <p>{{ art1.sottotitolo }}</p>
+                            <p>{{ art1.contenuto[:250] | safe }}...</p>
+                            <a href="{{ art1.url }}" class="read-more-btn">Leggi di più &raquo;</a>
+                        </div>
+                        {% if art2 %}
+                            <div class="article-card">
+                                <h4><a href="{{ art2.url }}">{{ art2.titolo }}</a></h4>
+                                <p>{{ art2.sottotitolo }}</p>
+                                <p>{{ art2.contenuto[:250] | safe }}...</p>
+                                <a href="{{ art2.url }}" class="read-more-btn">Leggi di più &raquo;</a>
+                            </div>
+                        {% endif %}
+                    </div> {# FINE: .article-text-container #}
+                    <div class="article-image-container">
+                        <img src="{{ art1.img_url_preview }}" alt="Immagine per {{ art1.titolo }}">
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <div class="footer-social-links">
+            {% if social_urls.instagram %}
+                <a href="{{ social_urls.instagram }}" target="_blank" rel="noopener noreferrer" class="instagram-icon">
+                    <i class="fab fa-instagram"></i>
+                </a>
+            {% endif %}
+            {% if social_urls.facebook %}
+                <a href="{{ social_urls.facebook }}" target="_blank" rel="noopener noreferrer" class="facebook-icon">
+                    <i class="fab fa-facebook-f"></i>
+                </a>
+            {% endif %}
+            {% if social_urls.google_mybusiness %}
+                <a href="{{ social_urls.google_mybusiness }}" target="_blank" rel="noopener noreferrer" class="google-icon">
+                    <i class="fab fa-google"></i>
+                </a>
+            {% endif %}
+        </div>
+        
+        <p>&copy; {{ "now()|datetimeformat('%Y')" | safe }} {{ footer_data.nome_azienda }}</p>
+        <p>P.IVA: {{ footer_data.partita_iva }}</p>
+        <p>Indirizzo: {{ footer_data.indirizzo }}</p>
+        <p>Telefono: {{ footer_data.telefono }}</p>
+        <p>Email: <a href="mailto:{{ footer_data.email_azienda }}">{{ footer_data.email_azienda }}</a></p>
+        <p><a href="{{ footer_data.cookie_policy_url }}">Cookie Policy</a></p>
+    </footer>
+</body>
+</html>

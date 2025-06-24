@@ -1,0 +1,19 @@
+# Ignora i file di ambiente locali con credenziali sensibili
+.env
+
+# Ignora le cartelle dei siti web generate (output del processo)
+public/
+
+# Ignora le cartelle di ambiente virtuale Python
+venv/
+.venv/
+env/
+__pycache__/
+
+# Ignora i file del database SQLite locale
+*.db
+*.db-journal
+
+# Ignora i log e altri file temporanei generati
+*.log
+*.tmp
