@@ -1,3 +1,7 @@
+# Aggiungi questa riga in cima, sotto serviceAccount
+serviceAccount: projects/sito-automazione-aziende/serviceAccounts/358125195620@cloudbuild.gserviceaccount.com
+logsBucket: gs://e-figo/cloud-build-logs/ # NUOVA RIGA: Specifica dove archiviare i log del build
+
 steps:
 # Step 1: Configura l'ambiente Python e installa le dipendenze
 - name: 'gcr.io/cloud-builders/python'
@@ -7,13 +11,11 @@ steps:
     - '-c'
     - |
       pip install --user -r requirements.txt
-      # Installa la libreria google-cloud-storage per il client Python
-      pip install --user google-cloud-storage
+      pip install --user google-cloud-storage # Assicurati sia installato
   env:
-    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie siano accessibili nel PATH
+    - 'PYTHONUSERBASE=/usr/local'
 
 # Step 2: Ottieni i segreti da Secret Manager e li imposta come variabili d'ambiente
-# Questi segreti saranno disponibili SOLO per i passi successivi in Cloud Build
 - name: 'gcr.io/cloud-builders/gcloud'
   id: Set-Secrets
   entrypoint: 'bash'
@@ -26,65 +28,41 @@ steps:
       export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
       export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
       
-      # Salva le variabili d'ambiente in un file temporaneo per renderle persistenti tra gli step
-      # Cloud Build non passa automaticamente le variabili exportate tra step
       echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> /tmp/env.txt
       echo "PEXELS_API_KEY=$PEXELS_API_KEY" >> /tmp/env.txt
       echo "IMAP_USER=$IMAP_USER" >> /tmp/env.txt
       echo "IMAP_PASSWORD=$IMAP_PASSWORD" >> /tmp/env.txt
       echo "IMAP_HOST=$IMAP_HOST" >> /tmp/env.txt
-  # secretEnv dichiara quali segreti verranno iniettati automaticamente da gcloud (NON i valori)
   secretEnv: ['OPENAI_API_KEY', 'PEXELS_API_KEY', 'IMAP_USER', 'IMAP_PASSWORD', 'IMAP_HOST']
 
 # Step 3: Esegui lo script di generazione del sito
-# Cloud Build scaricherà il file JSON di input e lo passerà al tuo script
 - name: 'gcr.io/cloud-builders/python'
   id: Generate-Website
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      # Carica le variabili d'ambiente dal file temporaneo creato nello step precedente
       set -a; source /tmp/env.txt; set +a
       
-      # Installa le dipendenze in un modo compatibile con l'ambiente build (se non fatto prima)
-      # pip install --user -r requirements.txt # Già fatto nello step 1, ma a volte si replica qui per sicurezza
-      
-      # Scarica il file JSON dell'email dal bucket di input
-      # _INPUT_BUCKET_NAME e _INPUT_FILE_NAME sono variabili di sostituzione fornite dal trigger
       gsutil cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
       
-      # Esegui lo script di automazione.
-      # L'API FastAPI (main.py) deve essere in esecuzione indipendentemente da questo build.
-      # Per testare l'automazione in un contesto Cloud Build che chiama una tua API locale,
-      # devi assicurarti che l'API locale sia accessibile da Cloud Build. Questo è complesso.
-      #
-      # Soluzione ideale per il Cloud: la tua API (main.py) dovrebbe essere deployata su Cloud Run
-      # o App Engine con un endpoint pubblico. In quel caso, API_BASE_URL dovrebbe essere quell'endpoint.
-      # Per ora, dato che API_BASE_URL è "http://127.0.0.1:8000", questo passo fallirà se main.py non è sul Cloud.
-      #
-      # Se la tua API_BASE_URL non è un servizio cloud, rimuovi la riga sotto
-      # o aggiorna API_BASE_URL nel tuo run_automation.py a un URL di un servizio cloud deployato.
-      #
-      # Per la tua attuale architettura: l'API FastAPI DEVE ESSERE IN ESECUZIONE SUL TUO PC quando Cloud Build tenta di chiamarla.
-      # Questo non è l'ideale per l'automazione completa, ma è come il tuo codice attuale è impostato.
-      # In un futuro, dovresti deployare FastAPI su Cloud Run e aggiornare API_BASE_URL.
+      # Nota: L'API FastAPI (main.py) deve essere deployata su Cloud Run o un servizio accessibile.
+      # Se la tua API_BASE_URL nel run_automation.py punta ancora a http://127.0.0.1:8000,
+      # questo build fallirà a meno che tu non abbia un'istanza di FastAPI pubblica.
+      # Per test completi, ti consiglio di deployare FastAPI su Cloud Run.
       
       echo "Eseguo run_automation.py con input_email.json..."
       python run_automation.py ./input_email.json
   env:
-    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie installate siano nel PATH
+    - 'PYTHONUSERBASE=/usr/local'
 
 # Step 4: Carica i file generati sul bucket di hosting statico
-# La cartella 'public' verrà caricata. Tutti i siti generati andranno lì.
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
 # Step 5: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
-# Questo passaggio elimina il file JSON dall'input bucket una volta che è stato processato e il sito pubblicato.
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
-  # Condizionale: Esegui solo se il build precedente (Upload-Website) ha avuto successo
   waitFor: ["Upload-Website"]
