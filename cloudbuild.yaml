@@ -7,7 +7,7 @@ logsBucket: gs://sito-automazione-build-logs-138602713462/ # Specifica dove arch
 availableSecrets:
   secretManager:
   - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
-    env: 'OPENAI_API_KEY' # Mappa il segreto alla variabile d'ambiente (stesso nome che useremo in env)
+    env: 'OPENAI_API_KEY' # Questo è il NOME della variabile d'ambiente
   - versionName: projects/generatore-siti-nuovo/secrets/PEXELS_API_KEY/versions/latest
     env: 'PEXELS_API_KEY'
   - versionName: projects/generatore-siti-nuovo/secrets/IMAP_USER/versions/latest
@@ -32,12 +32,12 @@ steps:
       # Se il repository è privato, usa l'autenticazione con un token GitHub (se configurato in availableSecrets)
       # Esempio per repo privato: git clone https://oauth2:$(GITHUB_TOKEN)@github.com/matteoballiu/siti-generati-automaticamente.git .
       # NOTA: Se il tuo repository è privato, dovrai creare un segreto GITHUB_TOKEN in Secret Manager
-      # e configurarlo in 'availableSecrets' e 'env' per questo step.
+      # e configurarlo in 'availableSecrets' e 'secretEnv' per questo step.
       #
       # Per repository pubblici:
       git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
-  # Per repository privati, il token deve essere iniettato come variabile d'ambiente qui.
-  # Ad esempio: env: ['GITHUB_TOKEN']
+  # Se il tuo repository GitHub è privato, il token deve essere iniettato come variabile d'ambiente qui.
+  # Ad esempio: secretEnv: ['GITHUB_TOKEN']
   # E GITHUB_TOKEN deve essere definito in availableSecrets al top level.
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
@@ -62,13 +62,15 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local'
-    # CORREZIONE: Le variabili d'ambiente devono essere nel formato 'KEY=$(SECRET_NAME)'
-    # Questo è il formato più robusto per Cloud Build.
-    - 'OPENAI_API_KEY=$(OPENAI_API_KEY)' 
-    - 'PEXELS_API_KEY=$(PEXELS_API_KEY)' 
-    - 'IMAP_USER=$(IMAP_USER)'      
-    - 'IMAP_PASSWORD=$(IMAP_PASSWORD)'  
-    - 'IMAP_HOST=$(IMAP_HOST)'      
+    # Rimuovi le definizioni KEY=VALUE qui. Le variabili saranno iniettate tramite secretEnv.
+    # Non usare la sintassi '${VAR_NAME}' qui.
+  # CORREZIONE: Aggiungi il blocco secretEnv a questo step, listando i NOMI delle variabili d'ambiente.
+  secretEnv:
+    - 'OPENAI_API_KEY' # Nome della variabile d'ambiente che Python leggerà (corrisponde a env in availableSecrets)
+    - 'PEXELS_API_KEY'
+    - 'IMAP_USER'
+    - 'IMAP_PASSWORD'
+    - 'IMAP_HOST'
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
