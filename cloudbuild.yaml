@@ -3,6 +3,23 @@
 serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
 logsBucket: gs://sito-automazione-build-logs-138602713462/ # Specifica dove archiviare i log del build
 
+# CORREZIONE: availableSecrets deve essere al LIVELLO TOP del file YAML
+availableSecrets:
+  secretManager:
+  - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
+    env: 'OPENAI_API_KEY' # Mappa il segreto alla variabile d'ambiente (stesso nome che usi in os.getenv())
+  - versionName: projects/generatore-siti-nuovo/secrets/PEXELS_API_KEY/versions/latest
+    env: 'PEXELS_API_KEY'
+  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_USER/versions/latest
+    env: 'IMAP_USER'
+  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_PASSWORD/versions/latest
+    env: 'IMAP_PASSWORD'
+  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_HOST/versions/latest
+    env: 'IMAP_HOST'
+  # Se il tuo repository GitHub è privato e hai un GITHUB_TOKEN, lo aggiungeresti qui:
+  #- versionName: projects/generatore-siti-nuovo/secrets/GITHUB_TOKEN/versions/latest
+  #  env: 'GITHUB_TOKEN'
+
 steps:
 # NUOVO STEP 0: Clonare il repository GitHub
 # Questo è necessario perché i trigger Pub/Sub non clonano automaticamente il codice.
@@ -12,12 +29,13 @@ steps:
   args:
     - '-c'
     - |
-      # Se il repository è privato, usa l'autenticazione con GITHUB_TOKEN
+      # Se il repository è privato, usa l'autenticazione con GITHUB_TOKEN (se configurato in availableSecrets)
       # git clone https://oauth2:${GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git .
       # Altrimenti, per repository pubblici:
       git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
-  # Se il tuo repository è privato, devi anche aggiungere GITHUB_TOKEN a availableSecrets qui
-  # E nel Secret Manager.
+  # Per repository privati, GITHUB_TOKEN deve essere iniettato come variabile d'ambiente qui.
+  # Ad esempio: env: ['GITHUB_TOKEN']
+  # E GITHUB_TOKEN deve essere definito in availableSecrets al top level.
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
 - name: 'gcr.io/cloud-builders/python'
@@ -43,27 +61,12 @@ steps:
     - 'PYTHONUSERBASE=/usr/local'
     # INIETTA I SEGRETI COME VARIABILI D'AMBIENTE PER QUESTO STEP
     # run_automation.py leggerà queste variabili usando os.getenv()
-    - 'OPENAI_API_KEY=${_OPENAI_API_KEY}'
-    - 'PEXELS_API_KEY=${_PEXELS_API_KEY}'
-    - 'IMAP_USER=${_IMAP_USER}'
-    - 'IMAP_PASSWORD=${_IMAP_PASSWORD}'
-    - 'IMAP_HOST=${_IMAP_HOST}'
-  # CORREZIONE: availableSecrets deve essere al SOTTOLIVELLO dello step, NON sotto 'env'
-  availableSecrets:
-    secretManager:
-    - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
-      env: '_OPENAI_API_KEY' # Mappa il segreto alla variabile d'ambiente _OPENAI_API_KEY
-    - versionName: projects/generatore-siti-nuovo/secrets/PEXELS_API_KEY/versions/latest
-      env: '_PEXELS_API_KEY'
-    - versionName: projects/generatore-siti-nuovo/secrets/IMAP_USER/versions/latest
-      env: '_IMAP_USER'
-    - versionName: projects/generatore-siti-nuovo/secrets/IMAP_PASSWORD/versions/latest
-      env: '_IMAP_PASSWORD'
-    - versionName: projects/generatore-siti-nuovo/secrets/IMAP_HOST/versions/latest
-      env: '_IMAP_HOST'
-    # Se il tuo repository GitHub è privato e hai un GITHUB_TOKEN, lo aggiungeresti qui:
-    #- versionName: projects/generatore-siti-nuovo/secrets/GITHUB_TOKEN/versions/latest
-    #  env: 'GITHUB_TOKEN'
+    # I NOMI delle variabili d'ambiente qui DEVONO corrispondere ai nomi 'env' in availableSecrets.
+    - 'OPENAI_API_KEY=${OPENAI_API_KEY}' # Rimosso underscore iniziale
+    - 'PEXELS_API_KEY=${PEXELS_API_KEY}' # Rimosso underscore iniziale
+    - 'IMAP_USER=${IMAP_USER}'           # Rimosso underscore iniziale
+    - 'IMAP_PASSWORD=${IMAP_PASSWORD}'   # Rimosso underscore iniziale
+    - 'IMAP_HOST=${IMAP_HOST}'           # Rimosso underscore iniziale
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
