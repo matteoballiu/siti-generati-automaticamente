@@ -1,4 +1,4 @@
-# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, con la gestione delle variabili segrete.
+# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, con la gestione dei segreti tramite availableSecrets.
 
 serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
 logsBucket: gs://sito-automazione-build-logs-138602713462/ # Specifica dove archiviare i log del build
@@ -8,15 +8,16 @@ steps:
 # Questo è necessario perché i trigger Pub/Sub non clonano automaticamente il codice.
 - name: 'gcr.io/cloud-builders/git'
   id: Clone-Repository
+  entrypoint: 'bash'
   args:
-    - clone
-    - --depth=1
-    - 'https://github.com/matteoballiu/siti-generati-automaticamente' # URL completo del tuo repository GitHub
-    - '.' # Clona nella directory corrente di lavoro del build
-  # Se il tuo repository è privato, devi configurare un token GitHub
-  # in Secret Manager (es. con nome GITHUB_TOKEN) e aggiungerlo qui con secretEnv.
-  # Ad esempio: secretEnv: ['GITHUB_TOKEN']
-  # E in args: - "-c" - "git clone https://oauth2:${GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git ."
+    - '-c'
+    - |
+      # Se il repository è privato, usa l'autenticazione con GITHUB_TOKEN
+      # git clone https://oauth2:${GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git .
+      # Altrimenti, per repository pubblici:
+      git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
+  # Se il tuo repository è privato, devi anche aggiungere GITHUB_TOKEN a availableSecrets qui
+  # E nel Secret Manager.
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
 - name: 'gcr.io/cloud-builders/python'
@@ -26,41 +27,13 @@ steps:
   env:
     - 'PYTHONUSERBASE=/usr/local'
 
-# Step 2: Ottieni i segreti da Secret Manager e li imposta come variabili d'ambiente
-# IMPORTANTE: In questo step NON usiamo 'secretEnv' sulla riga dello step.
-# Le variabili vengono esportate e poi caricate dagli step successivi.
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: Set-Secrets
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      # Recupera e esporta le chiavi API
-      export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
-      export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
-      export IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})
-      export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
-      export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
-      
-      # Salva queste variabili in un file temporaneo.
-      # Gli step successivi le caricheranno usando 'source /tmp/env.txt'
-      echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> /tmp/env.txt
-      echo "PEXELS_API_KEY=$PEXELS_API_KEY" >> /tmp/env.txt
-      echo "IMAP_USER=$IMAP_USER" >> /tmp/env.txt
-      echo "IMAP_PASSWORD=$IMAP_PASSWORD" >> /tmp/env.txt
-      echo "IMAP_HOST=$IMAP_HOST" >> /tmp/env.txt
-  # Rimosso secretEnv qui, la gestione dei segreti è ora interna agli argomenti.
-
-# Step 3: Esegui lo script di generazione del sito
+# Step 2: Esegui lo script di generazione del sito, iniettando i segreti come variabili d'ambiente
 - name: 'gcr.io/cloud-builders/python'
   id: Generate-Website
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      # Carica le variabili d'ambiente dal file temporaneo creato nello step precedente
-      set -a; source /tmp/env.txt; set +a
-      
       # Scarica il file JSON dell'email dal bucket di input
       gsutil cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
       
@@ -68,13 +41,37 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local'
+    # INIETTA I SEGRETI COME VARIABILI D'AMBIENTE PER QUESTO STEP
+    # run_automation.py leggerà queste variabili usando os.getenv()
+    - 'OPENAI_API_KEY=${_OPENAI_API_KEY}'
+    - 'PEXELS_API_KEY=${_PEXELS_API_KEY}'
+    - 'IMAP_USER=${_IMAP_USER}'
+    - 'IMAP_PASSWORD=${_IMAP_PASSWORD}'
+    - 'IMAP_HOST=${_IMAP_HOST}'
+  # Definisce da dove vengono presi i segreti e come vengono mappati alle variabili d'ambiente
+  availableSecrets:
+    secretManager:
+    - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
+      env: '_OPENAI_API_KEY' # Mappa il segreto alla variabile d'ambiente _OPENAI_API_KEY
+    - versionName: projects/generatore-siti-nuovo/secrets/PEXELS_API_KEY/versions/latest
+      env: '_PEXELS_API_KEY'
+    - versionName: projects/generatore-siti-nuovo/secrets/IMAP_USER/versions/latest
+      env: '_IMAP_USER'
+    - versionName: projects/generatore-siti-nuovo/secrets/IMAP_PASSWORD/versions/latest
+      env: '_IMAP_PASSWORD'
+    - versionName: projects/generatore-siti-nuovo/secrets/IMAP_HOST/versions/latest
+      env: '_IMAP_HOST'
+    # Se il tuo repository GitHub è privato e hai un GITHUB_TOKEN, lo aggiungeresti qui:
+    #- versionName: projects/generatore-siti-nuovo/secrets/GITHUB_TOKEN/versions/latest
+    #  env: 'GITHUB_TOKEN'
 
-# Step 4: Carica i file generati sul bucket di hosting statico
+
+# Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 5: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
+# Step 4: Pulisci i file JSON di input dal bucket dopo l'elaborazione (ex Step 5)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
