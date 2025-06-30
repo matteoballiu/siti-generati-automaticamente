@@ -48,7 +48,7 @@ steps:
     - 'IMAP_USER=${_IMAP_USER}'
     - 'IMAP_PASSWORD=${_IMAP_PASSWORD}'
     - 'IMAP_HOST=${_IMAP_HOST}'
-  # Definisce da dove vengono presi i segreti e come vengono mappati alle variabili d'ambiente
+  # CORREZIONE: availableSecrets deve essere al SOTTOLIVELLO dello step, NON sotto 'env'
   availableSecrets:
     secretManager:
     - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
