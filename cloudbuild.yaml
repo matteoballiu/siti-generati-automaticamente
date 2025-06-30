@@ -61,12 +61,13 @@ steps:
     - 'PYTHONUSERBASE=/usr/local'
     # INIETTA I SEGRETI COME VARIABILI D'AMBIENTE PER QUESTO STEP
     # run_automation.py leggerà queste variabili usando os.getenv()
-    # I NOMI delle variabili d'ambiente qui DEVONO corrispondere ai nomi 'env' in availableSecrets.
-    - 'OPENAI_API_KEY=${OPENAI_API_KEY}' # Rimosso underscore iniziale
-    - 'PEXELS_API_KEY=${PEXELS_API_KEY}' # Rimosso underscore iniziale
-    - 'IMAP_USER=${IMAP_USER}'           # Rimosso underscore iniziale
-    - 'IMAP_PASSWORD=${IMAP_PASSWORD}'   # Rimosso underscore iniziale
-    - 'IMAP_HOST=${IMAP_HOST}'           # Rimosso underscore iniziale
+    # CORREZIONE: Elenca semplicemente i nomi delle variabili d'ambiente.
+    # Non usare la sintassi '${VAR_NAME}' qui, perché Cloud Build non le interpreta come sostituzioni di trigger.
+    - OPENAI_API_KEY # Correzione: Nessun '$='
+    - PEXELS_API_KEY # Correzione: Nessun '$='
+    - IMAP_USER      # Correzione: Nessun '$='
+    - IMAP_PASSWORD  # Correzione: Nessun '$='
+    - IMAP_HOST      # Correzione: Nessun '$='
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
@@ -81,4 +82,3 @@ steps:
   waitFor: ["Upload-Website"]
 
 timeout: 1800s # Aumenta il timeout a 30 minuti (1800 secondi) se le generazioni AI sono lunghe
-    
