@@ -58,12 +58,14 @@ steps:
       # Scarica il file JSON dell'email dal bucket di input
       gsutil cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
       
+      # AGGIUNTO: Riferimento esplicito alle variabili segrete per soddisfare il linter di Cloud Build.
+      # Usiamo la sintassi ${VAR_NAME:+Set} per verificare se la variabile è impostata senza stampare il valore.
+      echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}"
+      
       echo "Eseguo run_automation.py con input_email.json..."
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local'
-    # Rimuovi le definizioni KEY=VALUE qui. Le variabili saranno iniettate tramite secretEnv.
-    # Non usare la sintassi '${VAR_NAME}' qui.
   # CORREZIONE: Aggiungi il blocco secretEnv a questo step, listando i NOMI delle variabili d'ambiente.
   secretEnv:
     - 'OPENAI_API_KEY' # Nome della variabile d'ambiente che Python leggerà (corrisponde a env in availableSecrets)
