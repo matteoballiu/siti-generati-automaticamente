@@ -62,13 +62,13 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local'
-    # INIETTA I SEGRETI COME VARIABILI D'AMBIENTE PER QUESTO STEP
-    # run_automation.py leggerà queste variabili usando os.getenv()
-    - OPENAI_API_KEY 
-    - PEXELS_API_KEY 
-    - IMAP_USER      
-    - IMAP_PASSWORD  
-    - IMAP_HOST      
+    # CORREZIONE: Le variabili d'ambiente devono essere nel formato KEY=VALUE
+    # I valori provengono da availableSecrets, quindi usiamo la sintassi ${KEY}
+    - OPENAI_API_KEY=${OPENAI_API_KEY} 
+    - PEXELS_API_KEY=${PEXELS_API_KEY} 
+    - IMAP_USER=${IMAP_USER}      
+    - IMAP_PASSWORD=${IMAP_PASSWORD}  
+    - IMAP_HOST=${IMAP_HOST}      
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
