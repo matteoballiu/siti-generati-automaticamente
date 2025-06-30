@@ -29,11 +29,14 @@ steps:
   args:
     - '-c'
     - |
-      # Se il repository è privato, usa l'autenticazione con GITHUB_TOKEN (se configurato in availableSecrets)
-      # git clone https://oauth2:${GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git .
-      # Altrimenti, per repository pubblici:
+      # Se il repository è privato, usa l'autenticazione con un token GitHub (se configurato in availableSecrets)
+      # Esempio per repo privato: git clone https://oauth2:${_GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git .
+      # NOTA: Se il tuo repository è privato, dovrai creare un segreto GITHUB_TOKEN in Secret Manager
+      # e configurarlo in 'availableSecrets' e 'env' per questo step.
+      #
+      # Per repository pubblici:
       git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
-  # Per repository privati, GITHUB_TOKEN deve essere iniettato come variabile d'ambiente qui.
+  # Per repository privati, il token deve essere iniettato come variabile d'ambiente qui
   # Ad esempio: env: ['GITHUB_TOKEN']
   # E GITHUB_TOKEN deve essere definito in availableSecrets al top level.
 
@@ -61,13 +64,11 @@ steps:
     - 'PYTHONUSERBASE=/usr/local'
     # INIETTA I SEGRETI COME VARIABILI D'AMBIENTE PER QUESTO STEP
     # run_automation.py leggerà queste variabili usando os.getenv()
-    # CORREZIONE: Elenca semplicemente i nomi delle variabili d'ambiente.
-    # Non usare la sintassi '${VAR_NAME}' qui, perché Cloud Build non le interpreta come sostituzioni di trigger.
-    - OPENAI_API_KEY # Correzione: Nessun '$='
-    - PEXELS_API_KEY # Correzione: Nessun '$='
-    - IMAP_USER      # Correzione: Nessun '$='
-    - IMAP_PASSWORD  # Correzione: Nessun '$='
-    - IMAP_HOST      # Correzione: Nessun '$='
+    - OPENAI_API_KEY 
+    - PEXELS_API_KEY 
+    - IMAP_USER      
+    - IMAP_PASSWORD  
+    - IMAP_HOST      
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
