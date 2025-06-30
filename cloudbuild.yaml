@@ -36,7 +36,7 @@ steps:
       #
       # Per repository pubblici:
       git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
-  # Se il tuo repository GitHub è privato, il token deve essere iniettato come variabile d'ambiente qui.
+  # Per repository privati, il token deve essere iniettato come variabile d'ambiente qui.
   # Ad esempio: env: ['GITHUB_TOKEN']
   # E GITHUB_TOKEN deve essere definito in availableSecrets al top level.
 
@@ -62,13 +62,13 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local'
-    # CORREZIONE: Le variabili d'ambiente devono essere nel formato KEY: $(SECRET_NAME)
-    # dove SECRET_NAME è il nome della variabile 'env' definita in availableSecrets.
-    - OPENAI_API_KEY: $(OPENAI_API_KEY) 
-    - PEXELS_API_KEY: $(PEXELS_API_KEY) 
-    - IMAP_USER: $(IMAP_USER)      
-    - IMAP_PASSWORD: $(IMAP_PASSWORD)  
-    - IMAP_HOST: $(IMAP_HOST)      
+    # CORREZIONE: Le variabili d'ambiente devono essere nel formato 'KEY=$(SECRET_NAME)'
+    # Questo è il formato più robusto per Cloud Build.
+    - 'OPENAI_API_KEY=$(OPENAI_API_KEY)' 
+    - 'PEXELS_API_KEY=$(PEXELS_API_KEY)' 
+    - 'IMAP_USER=$(IMAP_USER)'      
+    - 'IMAP_PASSWORD=$(IMAP_PASSWORD)'  
+    - 'IMAP_HOST=$(IMAP_HOST)'      
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
