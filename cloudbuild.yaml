@@ -3,11 +3,11 @@
 serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
 logsBucket: gs://sito-automazione-build-logs-138602713462/ # Specifica dove archiviare i log del build
 
-# CORREZIONE: availableSecrets deve essere al LIVELLO TOP del file YAML
+# availableSecrets deve essere al LIVELLO TOP del file YAML
 availableSecrets:
   secretManager:
   - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
-    env: 'OPENAI_API_KEY' # Mappa il segreto alla variabile d'ambiente (stesso nome che usi in os.getenv())
+    env: 'OPENAI_API_KEY' # Mappa il segreto alla variabile d'ambiente (stesso nome che useremo in env)
   - versionName: projects/generatore-siti-nuovo/secrets/PEXELS_API_KEY/versions/latest
     env: 'PEXELS_API_KEY'
   - versionName: projects/generatore-siti-nuovo/secrets/IMAP_USER/versions/latest
@@ -21,7 +21,7 @@ availableSecrets:
   #  env: 'GITHUB_TOKEN'
 
 steps:
-# NUOVO STEP 0: Clonare il repository GitHub
+# STEP 0: Clonare il repository GitHub
 # Questo è necessario perché i trigger Pub/Sub non clonano automaticamente il codice.
 - name: 'gcr.io/cloud-builders/git'
   id: Clone-Repository
@@ -30,13 +30,13 @@ steps:
     - '-c'
     - |
       # Se il repository è privato, usa l'autenticazione con un token GitHub (se configurato in availableSecrets)
-      # Esempio per repo privato: git clone https://oauth2:${_GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git .
+      # Esempio per repo privato: git clone https://oauth2:$(GITHUB_TOKEN)@github.com/matteoballiu/siti-generati-automaticamente.git .
       # NOTA: Se il tuo repository è privato, dovrai creare un segreto GITHUB_TOKEN in Secret Manager
       # e configurarlo in 'availableSecrets' e 'env' per questo step.
       #
       # Per repository pubblici:
       git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
-  # Per repository privati, il token deve essere iniettato come variabile d'ambiente qui
+  # Se il tuo repository GitHub è privato, il token deve essere iniettato come variabile d'ambiente qui.
   # Ad esempio: env: ['GITHUB_TOKEN']
   # E GITHUB_TOKEN deve essere definito in availableSecrets al top level.
 
@@ -62,13 +62,13 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local'
-    # CORREZIONE: Le variabili d'ambiente devono essere nel formato KEY=VALUE
-    # I valori provengono da availableSecrets, quindi usiamo la sintassi ${KEY}
-    - OPENAI_API_KEY=${OPENAI_API_KEY} 
-    - PEXELS_API_KEY=${PEXELS_API_KEY} 
-    - IMAP_USER=${IMAP_USER}      
-    - IMAP_PASSWORD=${IMAP_PASSWORD}  
-    - IMAP_HOST=${IMAP_HOST}      
+    # CORREZIONE: Le variabili d'ambiente devono essere nel formato KEY: $(SECRET_NAME)
+    # dove SECRET_NAME è il nome della variabile 'env' definita in availableSecrets.
+    - OPENAI_API_KEY: $(OPENAI_API_KEY) 
+    - PEXELS_API_KEY: $(PEXELS_API_KEY) 
+    - IMAP_USER: $(IMAP_USER)      
+    - IMAP_PASSWORD: $(IMAP_PASSWORD)  
+    - IMAP_HOST: $(IMAP_HOST)      
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
