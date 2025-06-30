@@ -1,43 +1,55 @@
-# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, con i tuoi valori.
+# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, con la gestione delle variabili segrete.
 
-# NOTA: I valori per _INPUT_BUCKET_NAME, _HOSTING_BUCKET_NAME e _INPUT_FILE_NAME
-# verranno forniti tramite le variabili di sostituzione nel trigger di Cloud Build,
-# non sono placeholder qui nel file YAML, ma vengono usati negli args come ${VAR_NAME}.
-
-serviceAccount: projects/sito-automazione-aziende/serviceAccounts/358125195620@cloudbuild.gserviceaccount.com
-logsBucket: gs://e-figo/cloud-build-logs/ # Specifica dove archiviare i log del build
+serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
+logsBucket: gs://sito-automazione-build-logs-138602713462/ # Specifica dove archiviare i log del build
 
 steps:
+# NUOVO STEP 0: Clonare il repository GitHub
+# Questo è necessario perché i trigger Pub/Sub non clonano automaticamente il codice.
+- name: 'gcr.io/cloud-builders/git'
+  id: Clone-Repository
+  args:
+    - clone
+    - --depth=1
+    - 'https://github.com/matteoballiu/siti-generati-automaticamente' # URL completo del tuo repository GitHub
+    - '.' # Clona nella directory corrente di lavoro del build
+  # Se il tuo repository è privato, devi configurare un token GitHub
+  # in Secret Manager (es. con nome GITHUB_TOKEN) e aggiungerlo qui con secretEnv.
+  # Ad esempio: secretEnv: ['GITHUB_TOKEN']
+  # E in args: - "-c" - "git clone https://oauth2:${GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git ."
+
 # Step 1: Configura l'ambiente Python e installa le dipendenze
-# Installa le librerie globalmente nel container
 - name: 'gcr.io/cloud-builders/python'
   id: Install-Dependencies
   entrypoint: 'bash'
   args: ['-c', 'pip install --user -r requirements.txt && pip install --user google-cloud-storage']
   env:
-    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie siano accessibili nel PATH
+    - 'PYTHONUSERBASE=/usr/local'
 
 # Step 2: Ottieni i segreti da Secret Manager e li imposta come variabili d'ambiente
-# Questi segreti saranno disponibili SOLO per i passi successivi in Cloud Build
+# IMPORTANTE: In questo step NON usiamo 'secretEnv' sulla riga dello step.
+# Le variabili vengono esportate e poi caricate dagli step successivi.
 - name: 'gcr.io/cloud-builders/gcloud'
   id: Set-Secrets
   entrypoint: 'bash'
   args:
     - '-c'
     - |
+      # Recupera e esporta le chiavi API
       export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
       export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
       export IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})
       export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
       export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
       
-      # Salva le variabili d'ambiente in un file temporaneo per renderle persistenti tra gli step
+      # Salva queste variabili in un file temporaneo.
+      # Gli step successivi le caricheranno usando 'source /tmp/env.txt'
       echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> /tmp/env.txt
       echo "PEXELS_API_KEY=$PEXELS_API_KEY" >> /tmp/env.txt
       echo "IMAP_USER=$IMAP_USER" >> /tmp/env.txt
       echo "IMAP_PASSWORD=$IMAP_PASSWORD" >> /tmp/env.txt
       echo "IMAP_HOST=$IMAP_HOST" >> /tmp/env.txt
-  secretEnv: ['OPENAI_API_KEY', 'PEXELS_API_KEY', 'IMAP_USER', 'IMAP_PASSWORD', 'IMAP_HOST']
+  # Rimosso secretEnv qui, la gestione dei segreti è ora interna agli argomenti.
 
 # Step 3: Esegui lo script di generazione del sito
 - name: 'gcr.io/cloud-builders/python'
@@ -46,23 +58,16 @@ steps:
   args:
     - '-c'
     - |
-      # Carica le variabili d'ambiente dal file temporaneo
+      # Carica le variabili d'ambiente dal file temporaneo creato nello step precedente
       set -a; source /tmp/env.txt; set +a
       
       # Scarica il file JSON dell'email dal bucket di input
       gsutil cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
       
-      # Nota importante: L'API FastAPI (main.py) deve essere deployata su Cloud Run o un servizio accessibile.
-      # Se API_BASE_URL nel tuo run_automation.py punta ancora a "http://127.0.0.1:8000",
-      # questo passo fallirà nel Cloud Build a meno che tu non abbia deployato FastAPI con un URL accessibile.
-      #
-      # Per un'automazione completamente cloud-native, deploya FastAPI e aggiorna API_BASE_URL nel tuo run_automation.py
-      # al suo URL pubblico (es. https://tuo-api-fastapi.cloudrun.app).
-      
       echo "Eseguo run_automation.py con input_email.json..."
       python run_automation.py ./input_email.json
   env:
-    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie installate siano nel PATH
+    - 'PYTHONUSERBASE=/usr/local'
 
 # Step 4: Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
@@ -73,7 +78,7 @@ steps:
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
-  waitFor: ["Upload-Website"] # Esegui solo se il build precedente ha avuto successo
+  waitFor: ["Upload-Website"]
 
 timeout: 1800s # Aumenta il timeout a 30 minuti (1800 secondi) se le generazioni AI sono lunghe
     
