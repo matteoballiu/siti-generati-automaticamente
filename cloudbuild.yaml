@@ -10,16 +10,11 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# Step 0: Clonare il repository GitHub (Mantenuto per robustezza, ma Cloud Build lo fa già)
-- name: 'gcr.io/cloud-builders/git' # Immagine per comandi Git
-  id: Clone-Repository
-  args:
-    - 'clone'
-    - '--depth=1'
-    - 'https://github.com/matteoballiu/siti-generati-automaticamente'
-    - '.' # Clona nella directory corrente di lavoro del build
+# RIMOSSO: Step 0: Clonare il repository GitHub
+# Cloud Build clona automaticamente il repository specificato nel trigger all'inizio del build.
+# Questo step era ridondante e causava l'errore "destination path '.' already exists".
 
-# Step 1: Configura l'ambiente Python e installa le dipendenze
+# Step 0 (ex Step 1): Configura l'ambiente Python e installa le dipendenze
 # Utilizza un'immagine Python specifica e affidabile.
 # Installiamo le dipendenze in un ambiente persistente per gli step successivi.
 - name: 'python:3.9' # Immagine Python ufficiale da Docker Hub
@@ -33,9 +28,9 @@ steps:
       pip install --no-cache-dir google-cloud-storage # Installa in ambiente standard
   # Rimosso env: PYTHONUSERBASE=/usr/local per installare direttamente nell'ambiente dell'immagine
 
-# Step 2: Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
+# Step 1 (ex Step 2): Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
 # Questo step usa l'immagine gcloud che include python, gcloud e gsutil.
-- name: 'gcr.io/cloud-builders/gcloud-slim' # CORREZIONE: Immagine gcloud-slim che include Python, gcloud, gsutil
+- name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
   id: Generate-Website
   entrypoint: 'bash'
   args:
@@ -59,12 +54,12 @@ steps:
   # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate globalmente nello step precedente.
 
 
-# Step 3: Carica i file generati sul bucket di hosting statico
+# Step 2 (ex Step 3): Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 4: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
+# Step 3 (ex Step 4): Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
