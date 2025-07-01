@@ -20,9 +20,10 @@ steps:
     - '-c'
     - |
       pip install --upgrade pip # Aggiorna pip per evitare warning
-      pip install --no-cache-dir -r requirements.txt # Installa in ambiente standard
-      pip install --no-cache-dir google-cloud-storage # Installa in ambiente standard
-  # Rimosso env: PYTHONUSERBASE=/usr/local per installare direttamente nell'ambiente dell'immagine
+      # Installiamo le dipendenze globalmente nell'immagine per renderle disponibili a tutti gli step successivi
+      pip install --no-cache-dir -r requirements.txt 
+      pip install --no-cache-dir google-cloud-storage 
+  # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate direttamente nell'ambiente dell'immagine.
 
 # Step 1 (ex Step 2): Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
 # Questo step usa l'immagine gcloud che include python, gcloud e gsutil.
@@ -41,13 +42,18 @@ steps:
       
       # Scarica il file JSON dell'email dal bucket di input
       # Aggiunto --ignore-symlinks per evitare warning su gsutil
-      gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
+      # CRITICO: Aggiunto un controllo per assicurarsi che il file esista prima di copiarlo
+      gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json || \
+      (echo "ERRORE: File di input JSON non trovato nel bucket: gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}" && exit 1)
       
       # Verifica che le variabili segrete siano state impostate (non stampa i valori)
       echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
       
       echo "Eseguo run_automation.py con input_email.json..."
       # CORREZIONE: Usa python3 invece di python per maggiore compatibilità
+      # Le dipendenze sono installate nello Step 0, ma dobbiamo assicurarci che siano accessibili.
+      # Utilizziamo il PATH di pip install --user per trovare i moduli.
+      export PATH=$PATH:/root/.local/bin # Aggiunge il path di installazione user di pip
       python3 run_automation.py ./input_email.json
   # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate globalmente nello step precedente.
 
