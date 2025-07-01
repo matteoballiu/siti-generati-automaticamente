@@ -10,13 +10,6 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# RIMOSSO: Step 0: Clonare il repository GitHub
-# Cloud Build clona automaticamente il repository specificato nel trigger all'inizio del build.
-# Questo step era ridondante e causava l'errore "destination path '.' already exists".
-
-# RIMOSSO: Step 0 (ex Step 1): Install-Dependencies
-# Le dipendenze Python verranno ora installate direttamente nello step Generate-Website.
-
 # Step 0 (ex Step 1): Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
 # Questo step usa l'immagine gcloud che include python, gcloud e gsutil.
 - name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
@@ -26,9 +19,10 @@ steps:
     - '-c'
     - |
       # Installiamo le dipendenze Python direttamente in questo step
-      pip install --upgrade pip # Aggiorna pip per evitare warning
-      pip install --no-cache-dir -r requirements.txt 
-      pip install --no-cache-dir google-cloud-storage 
+      # CORREZIONE: Usa 'python3 -m pip' per assicurare che pip venga trovato
+      python3 -m pip install --upgrade pip # Aggiorna pip per evitare warning
+      python3 -m pip install --no-cache-dir -r requirements.txt 
+      python3 -m pip install --no-cache-dir google-cloud-storage 
 
       # Recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
       export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
