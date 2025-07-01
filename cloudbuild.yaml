@@ -6,23 +6,8 @@ serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@clou
 # Specifica il bucket dove verranno archiviati i log del build.
 logsBucket: gs://generatore-siti-build-logs-138602713462/
 
-# availableSecrets deve essere al LIVELLO TOP del file YAML
-# Definisce i segreti che possono essere iniettati negli step
-availableSecrets:
-  secretManager:
-  - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
-    env: 'OPENAI_API_KEY' # Questo è il NOME della variabile d'ambiente
-  - versionName: projects/generatore-siti-nuovo/secrets/PEXELS_API_KEY/versions/latest
-    env: 'PEXELS_API_KEY'
-  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_USER/versions/latest
-    env: 'IMAP_USER'
-  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_PASSWORD/versions/latest
-    env: 'IMAP_PASSWORD'
-  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_HOST/versions/latest
-    env: 'IMAP_HOST'
-  # Se il tuo repository GitHub è privato e hai un GITHUB_TOKEN, lo aggiungeresti qui:
-  #- versionName: projects/generatore-siti-nuovo/secrets/GITHUB_TOKEN/versions/latest
-  #  env: 'GITHUB_TOKEN'
+# availableSecrets è stato rimosso dal top-level per semplificare la gestione dei segreti.
+# I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
 # Step 0: Clonare il repository GitHub
@@ -32,12 +17,11 @@ steps:
 # Per massima robustezza, lo manteniamo in una forma semplice.
 - name: 'gcr.io/cloud-builders/git'
   id: Clone-Repository
-  # CORREZIONE: Semplificato l'argomento per la clonazione.
-  # Se il tuo repository è PUBBLICO, questo è sufficiente.
-  # Se il tuo repository è PRIVATO, dovrai configurare un GITHUB_TOKEN in Secret Manager
-  # e aggiungere 'env: ['GITHUB_TOKEN']' a questo step e usare l'URL con autenticazione.
-  args: ['clone', '--depth=1', 'https://github.com/matteoballiu/siti-generati-automaticamente', '.']
-
+  args:
+    - 'clone'
+    - '--depth=1'
+    - 'https://github.com/matteoballiu/siti-generati-automaticamente'
+    - '.' # Clona nella directory corrente di lavoro del build
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
 # Utilizza un'immagine Python specifica e affidabile.
@@ -74,8 +58,7 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie installate siano nel PATH
-  # Rimosso completamente il blocco 'secretEnv' da questo step.
-  # La gestione dei segreti è ora all'interno degli 'args' dello step, che è il metodo più robusto.
+  # I blocchi 'availableSecrets' e 'secretEnv' sono stati rimossi da questo step.
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico
