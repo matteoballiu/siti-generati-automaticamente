@@ -10,22 +10,23 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# Step 0 (ex Step 1): Configura l'ambiente Python e installa le dipendenze
-# Utilizza un'immagine Python specifica e affidabile.
-# Installiamo le dipendenze in un ambiente persistente per gli step successivi.
-- name: 'python:3.9' # Immagine Python ufficiale da Docker Hub
-  id: Install-Dependencies
-  entrypoint: 'bash'
+# Step 0: Clonare il repository GitHub
+# Cloud Build clona già il repository specificato nel trigger all'inizio del build.
+# Questo step è qui solo per riferimento se avessi bisogno di clonare un altro repository
+# o se il trigger Pub/Sub non clona il repo principale (comportamento che varia).
+# Per massima robustezza, lo manteniamo in una forma semplice.
+- name: 'gcr.io/cloud-builders/git'
+  id: Clone-Repository
   args:
-    - '-c'
-    - |
-      pip install --upgrade pip # Aggiorna pip per evitare warning
-      # Installiamo le dipendenze globalmente nell'immagine per renderle disponibili a tutti gli step successivi
-      pip install --no-cache-dir -r requirements.txt 
-      pip install --no-cache-dir google-cloud-storage 
-  # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate direttamente nell'ambiente dell'immagine.
+    - 'clone'
+    - '--depth=1'
+    - 'https://github.com/matteoballiu/siti-generati-automaticamente'
+    - '.' # Clona nella directory corrente di lavoro del build
 
-# Step 1 (ex Step 2): Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
+# RIMOSSO: Step 0 (ex Step 1): Install-Dependencies
+# Le dipendenze Python verranno ora installate direttamente nello step Generate-Website.
+
+# Step 0 (ex Step 1): Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
 # Questo step usa l'immagine gcloud che include python, gcloud e gsutil.
 - name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
   id: Generate-Website
@@ -33,6 +34,11 @@ steps:
   args:
     - '-c'
     - |
+      # Installiamo le dipendenze Python direttamente in questo step
+      pip install --upgrade pip # Aggiorna pip per evitare warning
+      pip install --no-cache-dir -r requirements.txt 
+      pip install --no-cache-dir google-cloud-storage 
+
       # Recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
       export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
       export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
@@ -41,8 +47,6 @@ steps:
       export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
       
       # Scarica il file JSON dell'email dal bucket di input
-      # Aggiunto --ignore-symlinks per evitare warning su gsutil
-      # CRITICO: Aggiunto un controllo per assicurarsi che il file esista prima di copiarlo
       gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json || \
       (echo "ERRORE: File di input JSON non trovato nel bucket: gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}" && exit 1)
       
@@ -50,20 +54,16 @@ steps:
       echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
       
       echo "Eseguo run_automation.py con input_email.json..."
-      # CORREZIONE: Usa python3 invece di python per maggiore compatibilità
-      # Le dipendenze sono installate nello Step 0, ma dobbiamo assicurarci che siano accessibili.
-      # Utilizziamo il PATH di pip install --user per trovare i moduli.
-      export PATH=$PATH:/root/.local/bin # Aggiunge il path di installazione user di pip
       python3 run_automation.py ./input_email.json
-  # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate globalmente nello step precedente.
+  env:
+    - 'PYTHONUSERBASE=/usr/local' # Mantenuto per coerenza, ma l'installazione è globale nello step
 
-
-# Step 2 (ex Step 3): Carica i file generati sul bucket di hosting statico
+# Step 1 (ex Step 2): Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 3 (ex Step 4): Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
+# Step 2 (ex Step 3): Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
