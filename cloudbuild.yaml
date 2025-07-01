@@ -10,10 +10,6 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# RIMOSSO: Step 0: Clonare il repository GitHub
-# Cloud Build clona automaticamente il repository specificato nel trigger all'inizio del build.
-# Questo step era ridondante e causava l'errore "destination path '.' already exists".
-
 # Step 0 (ex Step 1): Configura l'ambiente Python e installa le dipendenze
 # Utilizza un'immagine Python specifica e affidabile.
 # Installiamo le dipendenze in un ambiente persistente per gli step successivi.
@@ -44,13 +40,15 @@ steps:
       export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
       
       # Scarica il file JSON dell'email dal bucket di input
-      gsutil cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
+      # Aggiunto --ignore-symlinks per evitare warning su gsutil
+      gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
       
       # Verifica che le variabili segrete siano state impostate (non stampa i valori)
       echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
       
       echo "Eseguo run_automation.py con input_email.json..."
-      python run_automation.py ./input_email.json
+      # CORREZIONE: Usa python3 invece di python per maggiore compatibilità
+      python3 run_automation.py ./input_email.json
   # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate globalmente nello step precedente.
 
 
