@@ -6,15 +6,31 @@ serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@clou
 # Specifica il bucket dove verranno archiviati i log del build.
 logsBucket: gs://generatore-siti-build-logs-138602713462/
 
+# availableSecrets deve essere al LIVELLO TOP del file YAML
+# Definisce i segreti che possono essere iniettati negli step
+availableSecrets:
+  secretManager:
+  - versionName: projects/generatore-siti-nuovo/secrets/OPENAI_API_KEY/versions/latest
+    env: 'OPENAI_API_KEY' # Questo è il NOME della variabile d'ambiente
+  - versionName: projects/generatore-siti-nuovo/secrets/PEXELS_API_KEY/versions/latest
+    env: 'PEXELS_API_KEY'
+  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_USER/versions/latest
+    env: 'IMAP_USER'
+  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_PASSWORD/versions/latest
+    env: 'IMAP_PASSWORD'
+  - versionName: projects/generatore-siti-nuovo/secrets/IMAP_HOST/versions/latest
+    env: 'IMAP_HOST'
+  # Se il tuo repository GitHub è privato e hai un GITHUB_TOKEN, lo aggiungeresti qui:
+  #- versionName: projects/generatore-siti-nuovo/secrets/GITHUB_TOKEN/versions/latest
+  #  env: 'GITHUB_TOKEN'
+
 steps:
 # Step 0: Clonare il repository GitHub
-# Cloud Build clona già il repository specificato nel trigger all'inizio del build.
-# Questo step è qui solo per riferimento se avessi bisogno di clonare un altro repository.
-# Per questo progetto, questo step è tecnicamente ridondante se il trigger è configurato per clonare.
-# Tuttavia, lo manteniamo per chiarezza e per dimostrare come si farebbe.
-# Se il tuo repository GitHub è PUBBLICO, questo step è sufficiente.
-# Se il tuo repository GitHub è PRIVATO, dovrai configurare un GITHUB_TOKEN in Secret Manager
-# e usare l'autenticazione come nell'esempio commentato sotto.
+# Questo è necessario perché i trigger Pub/Sub non clonano automaticamente il codice.
+# Cloud Build clona il repository specificato nel trigger all'inizio del build.
+# Questo step è qui solo per riferimento se avessi bisogno di clonare un altro repository
+# o se il trigger Pub/Sub non clona il repo principale (comportamento che varia).
+# Per sicurezza e robustezza, lo manteniamo.
 - name: 'gcr.io/cloud-builders/git'
   id: Clone-Repository
   entrypoint: 'bash'
@@ -23,8 +39,8 @@ steps:
     - |
       # Per repository pubblici:
       git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
-      # Per repository privati, avresti bisogno di un token:
-      # export GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN --project=${PROJECT_ID})
+      # Per repository privati, avresti bisogno di un token (che deve essere configurato in Secret Manager):
+      # Esempio: export GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN --project=${PROJECT_ID})
       # git clone https://oauth2:${GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git .
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
@@ -62,7 +78,8 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie installate siano nel PATH
-    # RIMOSSO: Non usare 'secretEnv' qui. I segreti sono esportati direttamente negli args.
+  # Rimosso completamente il blocco 'secretEnv' da questo step.
+  # La gestione dei segreti è ora all'interno degli 'args' dello step, che è il metodo più robusto.
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico
@@ -74,6 +91,6 @@ steps:
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
-  waitFor: ["Upload-Website"] # Esegui solo se il build precedente ha avuto successo
+  waitFor: ["Upload-Website"]
 
 timeout: 1800s # Aumenta il timeout a 30 minuti (1800 secondi) se le generazioni AI sono lunghe
