@@ -21,21 +21,9 @@ availableSecrets:
   #  env: 'GITHUB_TOKEN'
 
 steps:
-# STEP 0: Clonare il repository GitHub
-# Questo è necessario perché i trigger Pub/Sub non clonano automaticamente il codice.
-- name: 'gcr.io/cloud-builders/git'
-  id: Clone-Repository
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      # Se il repository è privato, usa l'autenticazione con un token GitHub (se configurato in availableSecrets)
-      # Esempio per repo privato: git clone https://oauth2:$(GITHUB_TOKEN)@github.com/matteoballiu/siti-generati-automaticamente.git .
-      # NOTA: Se il tuo repository è privato, dovrai creare un segreto GITHUB_TOKEN in Secret Manager
-      # e configurarlo in 'availableSecrets' e 'env' per questo step.
-      #
-      # Per repository pubblici:
-      git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
+# RIMOSSO: STEP 0: Clonare il repository GitHub
+# Cloud Build clona già il repository specificato nel trigger all'inizio del build.
+# Questo step era ridondante e causava l'errore "destination path '.' already exists".
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
 - name: 'gcr.io/cloud-builders/python'
