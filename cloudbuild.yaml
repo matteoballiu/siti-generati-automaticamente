@@ -1,4 +1,4 @@
-# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, progettato per funzionare.
+# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, progettato per funzionare con la massima robustezza.
 
 # Specifica l'account di servizio che eseguirà il build.
 # Questo account deve avere i permessi per accedere a Secret Manager, Pub/Sub e Storage.
@@ -26,22 +26,18 @@ availableSecrets:
 
 steps:
 # Step 0: Clonare il repository GitHub
-# Questo è necessario perché i trigger Pub/Sub non clonano automaticamente il codice.
-# Cloud Build clona il repository specificato nel trigger all'inizio del build.
+# Cloud Build clona già il repository specificato nel trigger all'inizio del build.
 # Questo step è qui solo per riferimento se avessi bisogno di clonare un altro repository
 # o se il trigger Pub/Sub non clona il repo principale (comportamento che varia).
-# Per sicurezza e robustezza, lo manteniamo.
+# Per massima robustezza, lo manteniamo in una forma semplice.
 - name: 'gcr.io/cloud-builders/git'
   id: Clone-Repository
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      # Per repository pubblici:
-      git clone --depth=1 https://github.com/matteoballiu/siti-generati-automaticamente .
-      # Per repository privati, avresti bisogno di un token (che deve essere configurato in Secret Manager):
-      # Esempio: export GITHUB_TOKEN=$(gcloud secrets versions access latest --secret=GITHUB_TOKEN --project=${PROJECT_ID})
-      # git clone https://oauth2:${GITHUB_TOKEN}@github.com/matteoballiu/siti-generati-automaticamente.git .
+  # CORREZIONE: Semplificato l'argomento per la clonazione.
+  # Se il tuo repository è PUBBLICO, questo è sufficiente.
+  # Se il tuo repository è PRIVATO, dovrai configurare un GITHUB_TOKEN in Secret Manager
+  # e aggiungere 'env: ['GITHUB_TOKEN']' a questo step e usare l'URL con autenticazione.
+  args: ['clone', '--depth=1', 'https://github.com/matteoballiu/siti-generati-automaticamente', '.']
+
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
 # Utilizza un'immagine Python specifica e affidabile.
