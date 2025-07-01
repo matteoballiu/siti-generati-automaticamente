@@ -10,22 +10,31 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# RIMOSSO: Step 0: Clonare il repository GitHub
-# Cloud Build clona automaticamente il repository specificato nel trigger all'inizio del build.
-# Questo step era ridondante e causava l'errore "destination path '.' already exists".
+# Step 0: Clonare il repository GitHub
+# Cloud Build clona già il repository specificato nel trigger all'inizio del build.
+# Questo step è qui solo per riferimento se avessi bisogno di clonare un altro repository
+# o se il trigger Pub/Sub non clona il repo principale (comportamento che varia).
+# Per massima robustezza, lo manteniamo in una forma semplice.
+- name: 'gcr.io/cloud-builders/git'
+  id: Clone-Repository
+  args:
+    - 'clone'
+    - '--depth=1'
+    - 'https://github.com/matteoballiu/siti-generati-automaticamente'
+    - '.' # Clona nella directory corrente di lavoro del build
 
-# Step 0 (ex Step 1): Configura l'ambiente Python e installa le dipendenze
+# Step 1: Configura l'ambiente Python e installa le dipendenze
 # Utilizza un'immagine Python specifica e affidabile.
-- name: 'gcr.io/cloud-builders/python:3' # Immagine Python più generica e affidabile (ultima Python 3)
+- name: 'python:3.9' # CORREZIONE: Immagine Python ufficiale da Docker Hub
   id: Install-Dependencies
   entrypoint: 'bash'
   args: ['-c', 'pip install --user -r requirements.txt && pip install --user google-cloud-storage']
   env:
     - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie siano accessibili nel PATH
 
-# Step 1 (ex Step 2): Esegui lo script di generazione del sito, iniettando i segreti direttamente
+# Step 2: Esegui lo script di generazione del sito, iniettando i segreti direttamente
 # Questo step recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
-- name: 'gcr.io/cloud-builders/python:3' # Immagine Python più generica e affidabile (ultima Python 3)
+- name: 'python:3.9' # CORREZIONE: Immagine Python ufficiale da Docker Hub
   id: Generate-Website
   entrypoint: 'bash'
   args:
@@ -51,12 +60,12 @@ steps:
     - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie installate siano nel PATH
 
 
-# Step 2 (ex Step 3): Carica i file generati sul bucket di hosting statico
+# Step 3: Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 3 (ex Step 4): Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
+# Step 4: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
