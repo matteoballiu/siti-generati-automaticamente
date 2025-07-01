@@ -26,7 +26,7 @@ steps:
 # Questo step era ridondante e causava l'errore "destination path '.' already exists".
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
-- name: 'gcr.io/cloud-builders/python:3.9' # CORREZIONE: Specifica versione esplicita di Python
+- name: 'gcr.io/cloud-builders/python/debian:python3.9' # CORREZIONE: Immagine Python più specifica e affidabile
   id: Install-Dependencies
   entrypoint: 'bash'
   args: ['-c', 'pip install --user -r requirements.txt && pip install --user google-cloud-storage']
@@ -34,7 +34,7 @@ steps:
     - 'PYTHONUSERBASE=/usr/local'
 
 # Step 2: Esegui lo script di generazione del sito, iniettando i segreti come variabili d'ambiente
-- name: 'gcr.io/cloud-builders/python:3.9' # CORREZIONE: Specifica versione esplicita di Python
+- name: 'gcr.io/cloud-builders/python/debian:python3.9' # CORREZIONE: Immagine Python più specifica e affidabile
   id: Generate-Website
   entrypoint: 'bash'
   args:
@@ -61,7 +61,7 @@ steps:
     - 'PYTHONUSERBASE=/usr/local'
   secretEnv:
     - 'OPENAI_API_KEY'
-    - 'PEXELS_API_KEY'
+    - 'PEXEL_API_KEY'
     - 'IMAP_USER'
     - 'IMAP_PASSWORD'
     - 'IMAP_HOST'
