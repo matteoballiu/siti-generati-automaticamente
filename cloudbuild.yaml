@@ -10,29 +10,38 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# RIMOSSO: Step 0: Clonare il repository GitHub
-# Cloud Build clona automaticamente il repository specificato nel trigger all'inizio del build.
-# Questo step era ridondante e causava l'errore "destination path '.' already exists".
+# Step 0: Clonare il repository GitHub (Mantenuto per robustezza, ma Cloud Build lo fa già)
+- name: 'gcr.io/cloud-builders/git' # Immagine per comandi Git
+  id: Clone-Repository
+  args:
+    - 'clone'
+    - '--depth=1'
+    - 'https://github.com/matteoballiu/siti-generati-automaticamente'
+    - '.' # Clona nella directory corrente di lavoro del build
 
-# Step 0 (ex Step 1): Configura l'ambiente Python e installa le dipendenze
+# Step 1: Configura l'ambiente Python e installa le dipendenze
 # Utilizza un'immagine Python specifica e affidabile.
+# Installiamo le dipendenze in un ambiente persistente per gli step successivi.
 - name: 'python:3.9' # Immagine Python ufficiale da Docker Hub
   id: Install-Dependencies
   entrypoint: 'bash'
-  args: ['-c', 'pip install --user -r requirements.txt && pip install --user google-cloud-storage']
-  env:
-    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie siano accessibili nel PATH
+  args:
+    - '-c'
+    - |
+      pip install --upgrade pip # Aggiorna pip per evitare warning
+      pip install --no-cache-dir -r requirements.txt # Installa in ambiente standard
+      pip install --no-cache-dir google-cloud-storage # Installa in ambiente standard
+  # Rimosso env: PYTHONUSERBASE=/usr/local per installare direttamente nell'ambiente dell'immagine
 
-# Step 1 (ex Step 2): Esegui lo script di generazione del sito, iniettando i segreti direttamente
-# Questo step recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
-- name: 'python:3.9' # Immagine Python ufficiale da Docker Hub
+# Step 2: Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
+# Questo step usa l'immagine gcloud che include python, gcloud e gsutil.
+- name: 'gcr.io/cloud-builders/gcloud-slim' # CORREZIONE: Immagine gcloud-slim che include Python, gcloud, gsutil
   id: Generate-Website
   entrypoint: 'bash'
   args:
     - '-c'
     - |
       # Recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
-      # Questo è il metodo più robusto per Cloud Build.
       export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
       export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
       export IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})
@@ -47,16 +56,15 @@ steps:
       
       echo "Eseguo run_automation.py con input_email.json..."
       python run_automation.py ./input_email.json
-  env:
-    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie installate siano nel PATH
+  # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate globalmente nello step precedente.
 
 
-# Step 2 (ex Step 3): Carica i file generati sul bucket di hosting statico
+# Step 3: Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 3 (ex Step 4): Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
+# Step 4: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
