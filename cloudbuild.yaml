@@ -58,7 +58,7 @@ steps:
       # Scarica il file JSON dell'email dal bucket di input
       gsutil cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json
       
-      # CORREZIONE: Recupera i segreti direttamente qui e esportali come variabili d'ambiente.
+      # Recupera i segreti direttamente qui e esportali come variabili d'ambiente.
       # Questo bypassa il problema di validazione di 'secretEnv' e 'env' nello step.
       export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
       export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
@@ -66,7 +66,7 @@ steps:
       export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
       export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
       
-      # AGGIUNTO: Riferimento esplicito alle variabili segrete per soddisfare il linter di Cloud Build.
+      # Riferimento esplicito alle variabili segrete per soddisfare il linter di Cloud Build.
       # Usiamo la sintassi ${VAR_NAME:+Set} per verificare se la variabile è impostata senza stampare il valore.
       echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
       
@@ -74,8 +74,8 @@ steps:
       python run_automation.py ./input_email.json
   env:
     - 'PYTHONUSERBASE=/usr/local'
-  # CORREZIONE: Rimosso completamente il blocco 'secretEnv' da questo step.
-  # La gestione dei segreti è ora all'interno degli 'args' dello step.
+  # CORREZIONE FINALE: Rimosso completamente il blocco 'secretEnv' da questo step.
+  # La gestione dei segreti è ora all'interno degli 'args' dello step, che è il metodo più robusto.
 
 
 # Step 3: Carica i file generati sul bucket di hosting statico (ex Step 4)
