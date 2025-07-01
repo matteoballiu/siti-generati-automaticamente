@@ -10,26 +10,26 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# NUOVO STEP 0: Installazione delle dipendenze Python
-# Questo step usa un'immagine Python standard e installa le dipendenze.
-- name: 'python:3.9' # Immagine Python ufficiale da Docker Hub, più affidabile per pip
-  id: Install-Dependencies
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      pip install --upgrade pip # Aggiorna pip
-      pip install --no-cache-dir -r requirements.txt # Installa le dipendenze
-      pip install --no-cache-dir google-cloud-storage # Installa google-cloud-storage
+# RIMOSSO: Step 0: Clonare il repository GitHub
+# Cloud Build clona automaticamente il repository specificato nel trigger all'inizio del build.
+# Questo step era ridondante e causava l'errore "destination path '.' already exists".
 
-# Step 1 (ex Step 0): Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
-# Questo step usa l'immagine gcloud-slim che include gcloud e gsutil.
+# RIMOSSO: Step 0 (ex Step 1): Install-Dependencies
+# Le dipendenze Python verranno ora installate direttamente nello step Generate-Website.
+
+# Step 0 (ex Step 1): Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
+# Questo step usa l'immagine gcloud che include python, gcloud e gsutil.
 - name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
   id: Generate-Website
   entrypoint: 'bash'
   args:
     - '-c'
     - |
+      # Installiamo le dipendenze Python direttamente in questo step
+      pip install --upgrade pip # Aggiorna pip per evitare warning
+      pip install --no-cache-dir -r requirements.txt 
+      pip install --no-cache-dir google-cloud-storage 
+
       # Recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
       export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
       export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
@@ -48,14 +48,15 @@ steps:
       echo "Eseguo run_automation.py con input_email.json..."
       # Le dipendenze sono state installate nello Step 0, quindi sono disponibili.
       python3 run_automation.py ./input_email.json
-  # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate globalmente nello step precedente.
+  env:
+    - 'PYTHONUSERBASE=/usr/local' # Mantenuto per coerenza, ma l'installazione è globale nello step
 
-# Step 2 (ex Step 1): Carica i file generati sul bucket di hosting statico
+# Step 1 (ex Step 2): Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 3 (ex Step 2): Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
+# Step 2 (ex Step 3): Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
