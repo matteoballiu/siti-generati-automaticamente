@@ -1,7 +1,7 @@
 logsBucket: gs://generatore-siti-build-logs-138602713462/
 
 substitutions:
-  _INPUT_BUCKET_NAME: "generatore-siti-hosting-matteoballiu"
+  _INPUT_BUCKET_NAME: "generatore-siti-email-input-matteoballiu"
   _INPUT_FILE_NAME: "input_email.json"
   _HOSTING_BUCKET_NAME: "generatore-siti-output"
 
