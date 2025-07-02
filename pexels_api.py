@@ -6,6 +6,9 @@ from pathlib import Path
 
 # load_dotenv() # Rimosso
 
+from typing import Optional  # mettilo in cima al file se non c’è
+
+
 PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
 if not PEXELS_API_KEY:
     raise ValueError("La variabile d'ambiente PEXELS_API_KEY non è stata impostata. Assicurati che Secret Manager e Cloud Build la forniscano.")
@@ -13,7 +16,7 @@ if not PEXELS_API_KEY:
 PEXELS_HEADERS = {"Authorization": PEXELS_API_KEY}
 PEXELS_BASE_URL = "https://api.pexels.com/v1"
 
-def cerca_e_scarica_immagine_pexels(query: str, save_path: Path, filename_prefix: str = "pexels_image", orientation: str = "landscape") -> str | None:
+def cerca_e_scarica_immagine_pexels(query: str, save_path: Path, filename_prefix: str = "pexels_image", orientation: str = "landscape") -> Optional[str]:
     """
     Cerca un'immagine su Pexels in base a una query, la scarica e la salva localmente.
     Restituisce il percorso relativo al file salvato o None in caso di fallimento.
