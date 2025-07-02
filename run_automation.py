@@ -21,7 +21,7 @@ from generate_site import crea_pagina_articolo, crea_home_page
 from jinja2 import Environment, FileSystemLoader
 
 # --- Configuration ---
-API_BASE_URL = "http://127.0.0.1:8000" # Potrebbe diventare un servizio cloud in futuro (es. IP di una Cloud Run)
+API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000") # Potrebbe diventare un servizio cloud in futuro (es. IP di una Cloud Run)
 N_ARTICOLI_TOTALI = 20
 
 default_palette = {"background": "#f8f9fa", "text": "#343a40"} 
