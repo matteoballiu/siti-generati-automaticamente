@@ -1,9 +1,8 @@
-# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, ora include il deployment dell'API FastAPI su Cloud Run.
+# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, progettato per funzionare con la massima robustezza.
 
-# RIMOSSO: Specifica l'account di servizio che eseguirà il build.
-# Per i build avviati con 'gcloud builds submit', lasciare questo campo non impostato
-# permette a Cloud Build di selezionare un service account predefinito.
-# serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
+# Specifica l'account di servizio che eseguirà il build.
+# Questo account deve avere i permessi per accedere a Secret Manager, Pub/Sub e Storage.
+serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
 # Specifica il bucket dove verranno archiviati i log del build.
 logsBucket: gs://generatore-siti-build-logs-138602713462/
 
@@ -11,58 +10,43 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 # I segreti verranno recuperati ed esportati direttamente all'interno degli step che ne hanno bisogno.
 
 steps:
-# Step 0: Costruisci l'immagine Docker per l'API FastAPI
-- name: 'gcr.io/cloud-builders/docker'
-  id: Build-API-Image
-  args: ['build', '-t', 'gcr.io/${PROJECT_ID}/fastapi-api:latest', '-f', 'Dockerfile.api', '.'] # Usa Dockerfile.api
-
-# Step 1: Pubblica l'immagine Docker dell'API su Container Registry
-- name: 'gcr.io/cloud-builders/docker'
-  id: Push-API-Image
-  args: ['push', 'gcr.io/${PROJECT_ID}/fastapi-api:latest']
-
-# Step 2: Deploy dell'API FastAPI su Cloud Run
-# Questa API sarà accessibile pubblicamente e run_automation.py la userà.
-- name: 'gcr.io/cloud-builders/gcloud'
-  id: Deploy-API-to-CloudRun
+# Step 0: Clonare il repository GitHub
+# Cloud Build clona già il repository specificato nel trigger all'inizio del build.
+# Questo step è qui solo per riferimento se avessi bisogno di clonare un altro repository
+# o se il trigger Pub/Sub non clona il repo principale (comportamento che varia).
+# Per massima robustezza, lo manteniamo in una forma semplice.
+- name: 'gcr.io/cloud-builders/git'
+  id: Clone-Repository
   args:
-    - 'run'
-    - 'deploy'
-    - 'fastapi-api-service' # Nome del servizio Cloud Run
-    - '--image=gcr.io/${PROJECT_ID}/fastapi-api:latest'
-    - '--platform=managed'
-    - '--region=europe-west1' # Scegli la stessa regione dei tuoi bucket/topic
-    - '--allow-unauthenticated' # Permette l'accesso pubblico all'API (per run_automation.py)
-    - '--set-env-vars=API_KEY_OPENAI=${OPENAI_API_KEY},API_KEY_PEXELS=${PEXELS_API_KEY}' # Passa segreti all'API
-    # Passa IMAP_USER, IMAP_PASSWORD, IMAP_HOST all'API se main.py li usa (non dovrebbe)
-    # Rimuovi se main.py non li usa, o se li gestisce direttamente da Secret Manager.
-    - '--set-env-vars=IMAP_USER=${IMAP_USER},IMAP_PASSWORD=${IMAP_PASSWORD},IMAP_HOST=${IMAP_HOST}'
-  # Aggiungi permessi per gcloud secrets access in questo step
-  env:
-    - 'OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})'
-    - 'PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})'
-    - 'IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})'
-    - 'IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})'
-    - 'IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})'
+    - 'clone'
+    - '--depth=1'
+    - 'https://github.com/matteoballiu/siti-generati-automaticamente'
+    - '.' # Clona nella directory corrente di lavoro del build
 
-# Step 3: Esegui lo script di generazione del sito (run_automation.py)
-# Ora run_automation.py chiamerà l'API deployata su Cloud Run.
+# Step 1: Configura l'ambiente Python e installa le dipendenze
+# Utilizza un'immagine Python specifica e affidabile.
+- name: 'python:3.9' # Immagine Python ufficiale da Docker Hub
+  id: Install-Dependencies
+  entrypoint: 'bash'
+  args: ['-c', 'pip install --user -r requirements.txt && pip install --user google-cloud-storage']
+  env:
+    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie siano accessibili nel PATH
+
+# Step 2: Esegui lo script di generazione del sito, iniettando i segreti direttamente
+# Questo step recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
 - name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
   id: Generate-Website
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      # Recupera l'URL del servizio Cloud Run appena deployato
-      export API_SERVICE_URL=$(gcloud run services describe fastapi-api-service --platform=managed --region=europe-west1 --format='value(status.url)')
-      echo "URL del servizio API deployato: ${API_SERVICE_URL}"
-      
       # Recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
-      export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
-      export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
-      export IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})
-      export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
-      export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
+      # CORREZIONE CRUCIALE: Nascondiamo il '$' al parser di Cloud Build usando la concatenazione di stringhe.
+      export OPENAI_API_KEY=$$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
+      export PEXELS_API_KEY=$$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
+      export IMAP_USER=$$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})
+      export IMAP_PASSWORD=$$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
+      export IMAP_HOST=$$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
       
       # Scarica il file JSON dell'email dal bucket di input
       gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json || \
@@ -72,16 +56,17 @@ steps:
       echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
       
       echo "Eseguo run_automation.py con input_email.json..."
-      # Passa l'URL dell'API a run_automation.py tramite variabile d'ambiente
-      API_BASE_URL=${API_SERVICE_URL} python3 run_automation.py ./input_email.json
-  # Rimosso env: PYTHONUSERBASE=/usr/local qui. Le dipendenze sono installate globalmente nell'immagine.
+      python3 run_automation.py ./input_email.json
+  env:
+    - 'PYTHONUSERBASE=/usr/local' # Assicura che le librerie installate siano nel PATH
 
-# Step 4: Carica i file generati sul bucket di hosting statico
+
+# Step 3: Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 5: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
+# Step 4: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
