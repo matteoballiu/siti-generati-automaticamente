@@ -1,4 +1,4 @@
-# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, progettato per funzionare con la massima robustezza.
+# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO
 
 # Specifica l'account di servizio che eseguirà il build.
 # Questo account deve avere i permessi per accedere a Secret Manager, Pub/Sub e Storage.
@@ -9,20 +9,15 @@ logsBucket: gs://generatore-siti-build-logs-138602713462/
 steps:
 # Step 0: Clonare il repository GitHub
 # Cloud Build clona già il repository specificato nel trigger all'inizio del build.
-# Questo step è qui solo per riferimento se avessi bisogno di clonare un altro repository
-# o se il trigger Pub/Sub non clona il repo principale (comportamento che varia).
-# Per massima robustezza, lo manteniamo in una forma semplice.
 - name: 'gcr.io/cloud-builders/git'
   id: Clone-Repository
   args:
     - 'clone'
     - '--depth=1'
     - 'https://github.com/matteoballiu/siti-generati-automaticamente'
-    - '.' # Clona nella directory corrente di lavoro del build
+    - '.'
 
 # Step 1: Configura l'ambiente Python e installa le dipendenze
-# Utilizza un'immagine Python specifica e affidabile.
-# Installiamo le dipendenze in un ambiente persistente per gli step successivi.
 - name: 'python:3.9' # Immagine Python ufficiale da Docker Hub (molto affidabile)
   id: Install-Dependencies
   entrypoint: 'bash'
@@ -33,11 +28,9 @@ steps:
       pip install --no-cache-dir -r requirements.txt # Installa le dipendenze
       pip install --no-cache-dir google-cloud-storage # Installa google-cloud-storage
   env:
-    # Imposta PYTHONPATH per assicurare che i moduli siano trovati negli step successivi
-    - 'PYTHONPATH=/usr/local/lib/python3.9/site-packages' 
+    - 'PYTHONPATH=/usr/local/lib/python3.9/site-packages'
 
 # Step 2: Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
-# Questo step usa l'immagine gcloud che include python, gcloud e gsutil.
 - name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
   id: Generate-Website
   entrypoint: 'bash'
@@ -52,7 +45,6 @@ steps:
       export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
       
       # Scarica il file JSON dell'email dal bucket di input
-      # CORREZIONE DEFINITIVA: Usa _INPUT_BUCKET_NAME per la sorgente del file JSON
       gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json || \
       (echo "ERRORE: File di input JSON non trovato nel bucket: gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}" && exit 1)
       
@@ -60,11 +52,11 @@ steps:
       echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
       
       echo "Eseguo run_automation.py con input_email.json..."
-      # CORREZIONE: Imposta PYTHONPATH per trovare i moduli installati nello step precedente
+      # Impostare PYTHONPATH come variabile d'ambiente
       export PYTHONPATH=/usr/local/lib/python3.9/site-packages:$PYTHONPATH
       python3 run_automation.py ./input_email.json
   env:
-    - 'PYTHONUSERBASE=/usr/local' # Mantenuto per coerenza, ma l'installazione è gestita da PYTHONPATH
+    - 'PYTHONPATH=/usr/local/lib/python3.9/site-packages' # Aggiungi la variabile qui
 
 # Step 3: Carica i file generati sul bucket di hosting statico
 - name: 'gcr.io/cloud-builders/gsutil'
@@ -78,3 +70,10 @@ steps:
   waitFor: ["Upload-Website"]
 
 timeout: 1800s # Aumenta il timeout a 30 minuti (1800 secondi) se le generazioni AI sono lunghe
+
+# Sostituzioni
+substitutions:
+  _HOSTING_BUCKET_NAME: "generatore-siti-hosting-matteoballiu"
+  _INPUT_BUCKET_NAME: "generatore-siti-email-input-matteoballiu"
+  _INPUT_FILE_NAME: "${FILE_NAME}"  # Specifica il nome del file JSON
+
