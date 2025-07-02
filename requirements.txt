@@ -8,3 +8,7 @@ python-dotenv
 requests
 psycopg2-binary # Mantenuto per flessibilità futura, ma non strettamente necessario per SQLite puro.
 email-validator
+requests
+openai
+google-cloud-storage
+
