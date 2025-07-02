@@ -1,4 +1,3 @@
-serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
 logsBucket: gs://generatore-siti-build-logs-138602713462/
 
 substitutions:
@@ -7,36 +6,53 @@ substitutions:
   _HOSTING_BUCKET_NAME: "generatore-siti-output"
 
 steps:
-# Step 0: Build dell'immagine Docker personalizzata
+# Step 0: Build immagine Docker personalizzata
 - name: 'gcr.io/cloud-builders/docker'
   id: Build-Custom-Image
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/custom-python-image', '.']
 
-# Step 1: Esecuzione dello script Python con i segreti e file JSON
+# Step 1: Recupera segreti e file JSON con gcloud/gsutil
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: Prepare-Environment
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - |
+      echo "Recupero i segreti..."
+      echo "OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=$PROJECT_ID)" > secrets.env
+      echo "PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=$PROJECT_ID)" >> secrets.env
+      echo "IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=$PROJECT_ID)" >> secrets.env
+      echo "IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=$PROJECT_ID)" >> secrets.env
+      echo "IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=$PROJECT_ID)" >> secrets.env
+
+      echo "Scarico il file input_email.json..."
+      gsutil cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json || \
+        (echo "ERRORE: File di input JSON non trovato nel bucket." && exit 1)
+
+# Step 2: Esegui run_automation.py con immagine Python e variabili caricate
 - name: 'gcr.io/$PROJECT_ID/custom-python-image'
   id: Generate-Website
   entrypoint: 'bash'
   args:
     - '-c'
     - |
-      export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=$PROJECT_ID)
-      export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=$PROJECT_ID)
-      export IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=$PROJECT_ID)
-      export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=$PROJECT_ID)
-      export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=$PROJECT_ID)
-
-      gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json || \
-      (echo "ERRORE: File di input JSON non trovato nel bucket: gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}" && exit 1)
-
+      source ./secrets.env
       echo "Eseguo run_automation.py con input_email.json..."
       python run_automation.py ./input_email.json
+  env:
+    - 'OPENAI_API_KEY=$(cat secrets.env | grep OPENAI_API_KEY | cut -d= -f2)'
+    - 'PEXELS_API_KEY=$(cat secrets.env | grep PEXELS_API_KEY | cut -d= -f2)'
+    - 'IMAP_USER=$(cat secrets.env | grep IMAP_USER | cut -d= -f2)'
+    - 'IMAP_PASSWORD=$(cat secrets.env | grep IMAP_PASSWORD | cut -d= -f2)'
+    - 'IMAP_HOST=$(cat secrets.env | grep IMAP_HOST | cut -d= -f2)'
+  waitFor: ['Prepare-Environment']
 
-# Step 2: Carica i file generati nel bucket di hosting
+# Step 3: Carica i file generati nel bucket di output
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Upload-Website
   args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Step 3: Cancella il file di input JSON (opzionale)
+# Step 4: Cancella il file di input (opzionale)
 - name: 'gcr.io/cloud-builders/gsutil'
   id: Clean-Input-File
   args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
