@@ -1,9 +1,9 @@
 # Questo è il file cloudbuild.yaml COMPLETO e CORRETTO, ora include il deployment dell'API FastAPI su Cloud Run.
 
-# Specifica l'account di servizio che eseguirà il build.
-# Questo account deve avere i permessi per accedere a Secret Manager, Pub/Sub e Storage.
-# E ORA ANCHE: Cloud Run Developer, Service Account User, IAM Service Account Token Creator.
-serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
+# RIMOSSO: Specifica l'account di servizio che eseguirà il build.
+# Per i build avviati con 'gcloud builds submit', lasciare questo campo non impostato
+# permette a Cloud Build di selezionare un service account predefinito.
+# serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
 # Specifica il bucket dove verranno archiviati i log del build.
 logsBucket: gs://generatore-siti-build-logs-138602713462/
 
