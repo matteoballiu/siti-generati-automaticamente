@@ -1,79 +1,59 @@
-# Questo è il file cloudbuild.yaml COMPLETO e CORRETTO
 
-# Specifica l'account di servizio che eseguirà il build.
-# Questo account deve avere i permessi per accedere a Secret Manager, Pub/Sub e Storage.
-serviceAccount: projects/generatore-siti-nuovo/serviceAccounts/138602713462@cloudbuild.gserviceaccount.com
-# Specifica il bucket dove verranno archiviati i log del build.
 logsBucket: gs://generatore-siti-build-logs-138602713462/
-
 steps:
-# Step 0: Clonare il repository GitHub
-# Cloud Build clona già il repository specificato nel trigger all'inizio del build.
-- name: 'gcr.io/cloud-builders/git'
-  id: Clone-Repository
-  args:
-    - 'clone'
-    - '--depth=1'
-    - 'https://github.com/matteoballiu/siti-generati-automaticamente'
-    - '.'
+  # Step 1: Clonare il repository GitHub (se necessario)
+  - name: 'gcr.io/cloud-builders/git'
+    id: Clone-Repository
+    args:
+      - 'clone'
+      - '--depth=1'
+      - 'https://github.com/matteoballiu/siti-generati-automaticamente'
+      - '.'
 
-# Step 1: Configura l'ambiente Python e installa le dipendenze
-- name: 'python:3.9' # Immagine Python ufficiale da Docker Hub (molto affidabile)
-  id: Install-Dependencies
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      pip install --upgrade pip # Aggiorna pip per evitare warning
-      pip install --no-cache-dir -r requirements.txt # Installa le dipendenze
-      pip install --no-cache-dir google-cloud-storage # Installa google-cloud-storage
-  env:
-    - 'PYTHONPATH=/usr/local/lib/python3.9/site-packages'
+  # Step 2: Configura l'ambiente Python e installa le dipendenze
+  - name: 'python:3.9' # Immagine Python ufficiale da Docker Hub
+    id: Install-Dependencies
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+          pip install --upgrade pip # Aggiorna pip
+          pip install --no-cache-dir -r requirements.txt # Installa dipendenze
 
-# Step 2: Esegui lo script di generazione del sito, iniettando i segreti e usando gsutil/gcloud
-- name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
-  id: Generate-Website
-  entrypoint: 'bash'
-  args:
-    - '-c'
-    - |
-      # Recupera i segreti da Secret Manager e li esporta come variabili d'ambiente.
-      export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
-      export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
-      export IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})
-      export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
-      export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
-      
-      # Scarica il file JSON dell'email dal bucket di input
-      gsutil -q cp gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME} ./input_email.json || \
-      (echo "ERRORE: File di input JSON non trovato nel bucket: gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}" && exit 1)
-      
-      # Verifica che le variabili segrete siano state impostate (non stampa i valori)
-      echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
-      
-      echo "Eseguo run_automation.py con input_email.json..."
-      # Impostare PYTHONPATH come variabile d'ambiente
-      export PYTHONPATH=/usr/local/lib/python3.9/site-packages:$PYTHONPATH
-      python3 run_automation.py ./input_email.json
-  env:
-    - 'PYTHONPATH=/usr/local/lib/python3.9/site-packages' # Aggiungi la variabile qui
+  # Step 3: Esegui lo script di generazione sito
+  - name: 'gcr.io/cloud-builders/gcloud-slim' # Immagine gcloud-slim che include Python, gcloud, gsutil
+    id: Generate-Website
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+          # Recupera i segreti da Secret Manager
+          export OPENAI_API_KEY=$(gcloud secrets versions access latest --secret=OPENAI_API_KEY --project=${PROJECT_ID})
+          export PEXELS_API_KEY=$(gcloud secrets versions access latest --secret=PEXELS_API_KEY --project=${PROJECT_ID})
+          export IMAP_USER=$(gcloud secrets versions access latest --secret=IMAP_USER --project=${PROJECT_ID})
+          export IMAP_PASSWORD=$(gcloud secrets versions access latest --secret=IMAP_PASSWORD --project=${PROJECT_ID})
+          export IMAP_HOST=$(gcloud secrets versions access latest --secret=IMAP_HOST --project=${PROJECT_ID})
 
-# Step 3: Carica i file generati sul bucket di hosting statico
-- name: 'gcr.io/cloud-builders/gsutil'
-  id: Upload-Website
-  args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
+          # Definisci PYTHONPATH come variabile d'ambiente
+          export PYTHONPATH=/usr/local/lib/python3.9/site-packages:$PYTHONPATH
 
-# Step 4: Pulisci i file JSON di input dal bucket dopo l'elaborazione (Opzionale ma buona pratica)
-- name: 'gcr.io/cloud-builders/gsutil'
-  id: Clean-Input-File
-  args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
-  waitFor: ["Upload-Website"]
+          # Verifica che le variabili segrete siano state impostate (non stampa i valori)
+          echo "Verifica segreti: OPENAI_API_KEY=${OPENAI_API_KEY:+Set}, PEXELS_API_KEY=${PEXELS_API_KEY:+Set}, IMAP_USER=${IMAP_USER:+Set}, IMAP_PASSWORD=${IMAP_PASSWORD:+Set}, IMAP_HOST=${IMAP_HOST:+Set}"
+          
+          # Esegui il codice
+          python3 run_automation.py ./input_email.json
+    env:
+      - 'PYTHONPATH=/usr/local/lib/python3.9/site-packages' # Aggiungi PYTHONPATH come variabile d'ambiente
 
-timeout: 1800s # Aumenta il timeout a 30 minuti (1800 secondi) se le generazioni AI sono lunghe
+  # Step 4: Carica i file generati sul bucket di hosting statico
+  - name: 'gcr.io/cloud-builders/gsutil'
+    id: Upload-Website
+    args: ['-m', 'cp', '-r', './public/*', 'gs://${_HOSTING_BUCKET_NAME}/']
 
-# Sostituzioni
-substitutions:
-  _HOSTING_BUCKET_NAME: "generatore-siti-hosting-matteoballiu"
-  _INPUT_BUCKET_NAME: "generatore-siti-email-input-matteoballiu"
-  _INPUT_FILE_NAME: "${FILE_NAME}"  # Specifica il nome del file JSON
+  # Step 5: Pulisci i file JSON di input dal bucket dopo l'elaborazione
+  - name: 'gcr.io/cloud-builders/gsutil'
+    id: Clean-Input-File
+    args: ['rm', 'gs://${_INPUT_BUCKET_NAME}/${_INPUT_FILE_NAME}']
+    waitFor: ["Upload-Website"]
 
+timeout: 1800s
